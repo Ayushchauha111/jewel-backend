@@ -1,0 +1,74 @@
+name: Backend Deployment
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: Set up OCI Configuration on Server
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            mkdir -p ~/.oci
+            echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
+            chmod 600 ~/.oci/oci_api_key.pem
+            echo "[DEFAULT]" > ~/.oci/config
+            echo "user=${{ secrets.OCI_USER_ID }}" >> ~/.oci/config
+            echo "fingerprint=${{ secrets.OCI_FINGERPRINT }}" >> ~/.oci/config
+            echo "tenancy=${{ secrets.OCI_TENANCY }}" >> ~/.oci/config
+            echo "region=${{ secrets.OCI_REGION }}" >> ~/.oci/config
+            echo "key_file=~/.oci/oci_api_key.pem" >> ~/.oci/config
+
+      - name: Verify OCI Files on Remote Server
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "Listing .oci directory:"
+            ls -la ~/.oci
+
+            echo "Contents of ~/.oci/config:"
+            cat ~/.oci/config
+
+            echo "Contents of ~/.oci/oci_api_key.pem:"
+            cat ~/.oci/oci_api_key.pem
+
+      - name: Deploy JAR to Oracle Cloud
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "target/*.jar"
+          target: "/home/ubuntu"
+
+      - name: Restart Spring Boot Service
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo systemctl stop myapp
+            sudo systemctl start myapp

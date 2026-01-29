@@ -1,0 +1,22 @@
+package com.example.jewell;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+@SpringBootApplication(exclude = {
+		// Exclude Redis auto-configuration - we'll handle it manually via RedisConfig
+		// This prevents Spring Boot from auto-configuring Redis when it's not available
+		RedisAutoConfiguration.class,
+		RedisRepositoriesAutoConfiguration.class
+})
+@EnableScheduling
+public class DemoApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
+
+}
