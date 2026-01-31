@@ -140,10 +140,10 @@ public class WebSecurityConfig {
         config.addAllowedOrigin("http://localhost:8000");
         config.addAllowedOrigin("http://localhost:3000");
         config.addAllowedOrigin("https://strong-capybara-1b40c2.netlify.app");
-        config.addAllowedOrigin("http://typogram.in");
-        config.addAllowedOrigin("https://typogram.in");
-        config.addAllowedOrigin("https://www.typogram.in");
-        config.addAllowedOrigin("https://api.typogram.in");
+        config.addAllowedOrigin("http://gangajewellers.in");
+        config.addAllowedOrigin("https://gangajewellers.in");
+        config.addAllowedOrigin("https://www.gangajewellers.in");
+        config.addAllowedOrigin("https://api.gangajewellers.in");
         
         // Only allow specific HTTP methods
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
