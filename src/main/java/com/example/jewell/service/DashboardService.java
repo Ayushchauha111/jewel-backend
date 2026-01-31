@@ -1,6 +1,7 @@
 package com.example.jewell.service;
 
 import com.example.jewell.model.Credit;
+import com.example.jewell.model.DailyRate;
 import com.example.jewell.model.GoldPrice;
 import com.example.jewell.model.Order;
 import com.example.jewell.model.SilverPrice;
@@ -39,6 +40,8 @@ public class DashboardService {
     private GoldPriceService goldPriceService;
     @Autowired
     private SilverPriceService silverPriceService;
+    @Autowired
+    private DailyRateService dailyRateService;
 
     /**
      * Returns all data needed for the admin dashboard in one call.
@@ -66,15 +69,21 @@ public class DashboardService {
                 ? orderRepository.getTotalPaidRevenue() : BigDecimal.ZERO;
         result.put("totalRevenue", billingRevenue.add(orderRevenue));
 
-        BigDecimal todayGold = goldPriceService.getTodayGoldPrice()
-                .map(GoldPrice::getPricePerGram)
-                .orElse(goldPriceService.getLatestGoldPrice().map(GoldPrice::getPricePerGram).orElse(null));
+        // Prefer unified daily rates, then fall back to legacy gold/silver tables
+        java.util.Optional<DailyRate> dailyRate = dailyRateService.getTodayOrLatest();
+        BigDecimal todayGold = dailyRate.flatMap(r -> dailyRateService.getGoldRateForCarat(java.math.BigDecimal.valueOf(22)))
+                .or(() -> goldPriceService.getTodayGoldPrice().map(GoldPrice::getPrice22Carat))
+                .or(() -> goldPriceService.getTodayGoldPrice().map(GoldPrice::getPricePerGram))
+                .or(() -> goldPriceService.getLatestGoldPrice().map(GoldPrice::getPricePerGram))
+                .orElse(null);
         result.put("todayGoldPrice", todayGold);
-
-        BigDecimal todaySilver = silverPriceService.getTodaySilverPrice()
-                .map(SilverPrice::getPricePerGram)
-                .orElse(silverPriceService.getLatestSilverPrice().map(SilverPrice::getPricePerGram).orElse(null));
+        BigDecimal todaySilver = dailyRate.flatMap(r -> java.util.Optional.ofNullable(r.getSilverPerGram()))
+                .filter(v -> v.compareTo(java.math.BigDecimal.ZERO) > 0)
+                .or(() -> silverPriceService.getTodaySilverPrice().map(SilverPrice::getPricePerGram))
+                .or(() -> silverPriceService.getLatestSilverPrice().map(SilverPrice::getPricePerGram))
+                .orElse(null);
         result.put("todaySilverPrice", todaySilver);
+        result.put("todayDiamondPrice", dailyRate.map(DailyRate::getDiamondPerCarat).orElse(null));
 
         List<Order> recentOrders = orderRepository.findAll(
                 PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt"))).getContent();

@@ -37,6 +37,13 @@ public class BillingItem {
     @Column(name = "carat", precision = 5, scale = 2)
     private BigDecimal carat;
 
+    @Column(name = "diamond_carat", precision = 6, scale = 3)
+    private BigDecimal diamondCarat;
+
+    /** Diamond value for this line (diamond carat × qty × rate at bill time). Metal amount = totalPrice - diamondAmount. */
+    @Column(name = "diamond_amount", precision = 12, scale = 2)
+    private BigDecimal diamondAmount;
+
     @Column(name = "quantity")
     private Integer quantity = 1;
 
@@ -108,6 +115,22 @@ public class BillingItem {
 
     public void setCarat(BigDecimal carat) {
         this.carat = carat;
+    }
+
+    public BigDecimal getDiamondCarat() {
+        return diamondCarat;
+    }
+
+    public void setDiamondCarat(BigDecimal diamondCarat) {
+        this.diamondCarat = diamondCarat;
+    }
+
+    public BigDecimal getDiamondAmount() {
+        return diamondAmount;
+    }
+
+    public void setDiamondAmount(BigDecimal diamondAmount) {
+        this.diamondAmount = diamondAmount;
     }
 
     public Integer getQuantity() {

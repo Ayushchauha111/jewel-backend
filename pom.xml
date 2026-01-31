@@ -170,6 +170,12 @@
 			<artifactId>pdfbox</artifactId>
 			<version>3.0.1</version>
 		</dependency>
+		<!-- PDF Generation (bill attachment) -->
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>1.4.2</version>
+		</dependency>
 		
 		<!-- HTML/URL Parsing -->
 		<dependency>

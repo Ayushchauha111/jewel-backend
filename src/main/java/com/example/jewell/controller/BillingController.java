@@ -60,15 +60,17 @@ public class BillingController {
 
     @PostMapping("/{id}/send-email")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> sendBillEmail(@PathVariable Long id) {
-        billingService.sendBillViaEmail(id);
+    public ResponseEntity<Void> sendBillEmail(@PathVariable Long id,
+                                              @RequestParam(required = false, defaultValue = "NORMAL") String receiptType) {
+        billingService.sendBillViaEmail(id, receiptType);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/send-whatsapp")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> sendBillWhatsApp(@PathVariable Long id) {
-        billingService.sendBillViaWhatsApp(id);
+    public ResponseEntity<Void> sendBillWhatsApp(@PathVariable Long id,
+                                                @RequestParam(required = false, defaultValue = "NORMAL") String receiptType) {
+        billingService.sendBillViaWhatsApp(id, receiptType);
         return ResponseEntity.ok().build();
     }
 }

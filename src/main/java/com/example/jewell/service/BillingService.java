@@ -81,6 +81,9 @@ public class BillingService {
                             item.setItemName(s.getArticleName());
                         }
                         item.setArticleCode(s.getArticleCode());
+                        if (item.getWeightGrams() == null && s.getWeightGrams() != null) item.setWeightGrams(s.getWeightGrams());
+                        if (item.getCarat() == null && s.getCarat() != null) item.setCarat(s.getCarat());
+                        if (item.getDiamondCarat() == null && s.getDiamondCarat() != null) item.setDiamondCarat(s.getDiamondCarat());
                     }
                 }
             }
@@ -203,20 +206,20 @@ public class BillingService {
         return savedBilling;
     }
 
-    public void sendBillViaEmail(Long billingId) {
+    public void sendBillViaEmail(Long billingId, String receiptType) {
         Billing billing = billingRepository.findById(billingId)
                 .orElseThrow(() -> new RuntimeException("Billing not found"));
         
-        emailService.sendBillEmail(billing);
+        emailService.sendBillEmail(billing, receiptType != null ? receiptType.toUpperCase() : "NORMAL");
         billing.setEmailSent(true);
         billingRepository.save(billing);
     }
 
-    public void sendBillViaWhatsApp(Long billingId) {
+    public void sendBillViaWhatsApp(Long billingId, String receiptType) {
         Billing billing = billingRepository.findById(billingId)
                 .orElseThrow(() -> new RuntimeException("Billing not found"));
         
-        whatsAppService.sendBillWhatsApp(billing);
+        whatsAppService.sendBillWhatsApp(billing, receiptType != null ? receiptType.toUpperCase() : "NORMAL");
         billing.setWhatsappSent(true);
         billingRepository.save(billing);
     }

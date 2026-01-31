@@ -51,6 +51,9 @@ public class StockService {
     private GoldPriceService goldPriceService;
 
     @Autowired
+    private com.example.jewell.service.DailyRateService dailyRateService;
+
+    @Autowired
     private StockHistoryRepository stockHistoryRepository;
 
     @Autowired
@@ -138,15 +141,16 @@ public class StockService {
 
     /**
      * Calculates selling price from today's (or latest) gold rate: weight (grams) × price per gram for given carat.
-     * Returns empty if gold rate or inputs are missing.
+     * Uses unified DailyRate first, then falls back to GoldPrice. Returns empty if gold rate or inputs are missing.
      */
     public Optional<BigDecimal> calculateSellingPriceFromGoldRate(BigDecimal weightGrams, BigDecimal carat) {
         if (weightGrams == null || weightGrams.compareTo(BigDecimal.ZERO) <= 0
                 || carat == null || carat.compareTo(BigDecimal.ZERO) <= 0) {
             return Optional.empty();
         }
-        return goldPriceService.getPricePerGramForCarat(carat)
-                .map(ratePerGram -> weightGrams.multiply(ratePerGram).setScale(2, RoundingMode.HALF_UP));
+        Optional<BigDecimal> ratePerGram = dailyRateService.getGoldRateForCarat(carat)
+                .or(() -> goldPriceService.getPricePerGramForCarat(carat));
+        return ratePerGram.map(rate -> weightGrams.multiply(rate).setScale(2, RoundingMode.HALF_UP));
     }
 
     public Stock createStock(Stock stock) {

@@ -78,10 +78,17 @@ public class WebSecurityConfig {
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/stock/**").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/gold-price/**").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/silver-price/**").permitAll()
+                                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rates/**").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/live-rates/**").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/orders").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/orders/**").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/orders/*/payment").permitAll()
+                                // Gold Mine 10+1: admin-only pay/redeem/cancel; public GET and enrollment
+                                .requestMatchers("/api/gold-mine/plans/*/installments/*/pay").hasRole("ADMIN")
+                                .requestMatchers("/api/gold-mine/plans/*/redeem").hasRole("ADMIN")
+                                .requestMatchers("/api/gold-mine/plans/*/cancel").hasRole("ADMIN")
+                                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/gold-mine/**").permitAll()
+                                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/gold-mine/plans").permitAll()
                                 // Customer endpoints - public for checkout flow (must come before general rule)
                                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/customers").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/customers/phone/**").permitAll()
@@ -95,6 +102,7 @@ public class WebSecurityConfig {
                                 .requestMatchers("/api/credits/**").hasRole("ADMIN")
                                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/gold-price/**").hasRole("ADMIN")
                                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/silver-price/**").hasRole("ADMIN")
+                                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/rates/**").hasRole("ADMIN")
                                 .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/orders/**").hasRole("ADMIN")
                                 .requestMatchers("/api/analytics/**").hasRole("ADMIN")
                                 .requestMatchers("/api/income-expense/**").hasRole("ADMIN")
@@ -139,11 +147,11 @@ public class WebSecurityConfig {
         // Only allow specific origins (not wildcard)
         config.addAllowedOrigin("http://localhost:8000");
         config.addAllowedOrigin("http://localhost:3000");
-        config.addAllowedOrigin("https://gangajewellers.netlify.app");
-        config.addAllowedOrigin("http://gangajewellers.in");
-        config.addAllowedOrigin("https://gangajewellers.in");
-        config.addAllowedOrigin("https://www.gangajewellers.in");
-        config.addAllowedOrigin("https://api.gangajewellers.in");
+        config.addAllowedOrigin("https://strong-capybara-1b40c2.netlify.app");
+        config.addAllowedOrigin("http://typogram.in");
+        config.addAllowedOrigin("https://typogram.in");
+        config.addAllowedOrigin("https://www.typogram.in");
+        config.addAllowedOrigin("https://api.typogram.in");
         
         // Only allow specific HTTP methods
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));

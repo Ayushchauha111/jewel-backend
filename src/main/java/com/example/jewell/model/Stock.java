@@ -39,6 +39,9 @@ public class Stock {
     @Column(name = "carat", precision = 5, scale = 2)
     private BigDecimal carat;
 
+    @Column(name = "diamond_carat", precision = 5, scale = 2)
+    private BigDecimal diamondCarat;
+
     @Column(name = "purity_percentage", precision = 5, scale = 2)
     private BigDecimal purityPercentage;
 
@@ -140,6 +143,14 @@ public class Stock {
 
     public void setCarat(BigDecimal carat) {
         this.carat = carat;
+    }
+
+    public BigDecimal getDiamondCarat() {
+        return diamondCarat;
+    }
+
+    public void setDiamondCarat(BigDecimal diamondCarat) {
+        this.diamondCarat = diamondCarat;
     }
 
     public BigDecimal getPurityPercentage() {

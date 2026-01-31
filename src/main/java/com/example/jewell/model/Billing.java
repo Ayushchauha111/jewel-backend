@@ -31,6 +31,10 @@ public class Billing {
     @Column(name = "total_amount", precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    /** Total diamond value (diamond carat × rate) for display as separate row on receipts. */
+    @Column(name = "total_diamond_amount", precision = 12, scale = 2)
+    private BigDecimal totalDiamondAmount;
+
     @Column(name = "discount_amount", precision = 12, scale = 2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
@@ -106,6 +110,14 @@ public class Billing {
 
     public void setTotalAmount(BigDecimal totalAmount) {
         this.totalAmount = totalAmount;
+    }
+
+    public BigDecimal getTotalDiamondAmount() {
+        return totalDiamondAmount;
+    }
+
+    public void setTotalDiamondAmount(BigDecimal totalDiamondAmount) {
+        this.totalDiamondAmount = totalDiamondAmount;
     }
 
     public BigDecimal getDiscountAmount() {

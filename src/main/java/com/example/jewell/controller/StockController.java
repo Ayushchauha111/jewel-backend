@@ -5,6 +5,7 @@ import com.example.jewell.model.Stock;
 import com.example.jewell.service.StockService;
 import com.example.jewell.service.StockHistoryService;
 import com.example.jewell.service.GoldPriceService;
+import com.example.jewell.service.DailyRateService;
 import com.example.jewell.model.StockHistory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -36,10 +37,12 @@ public class StockController {
 
     @Autowired
     private GoldPriceService goldPriceService;
+    @Autowired
+    private DailyRateService dailyRateService;
 
     /**
      * Calculate article selling price from today's (or latest) gold rate: weight × price per gram for carat.
-     * GET /api/stock/calculate-price?weightGrams=10&carat=22
+     * Uses unified rates first. GET /api/stock/calculate-price?weightGrams=10&carat=22
      */
     @GetMapping("/calculate-price")
     @PreAuthorize("hasRole('ADMIN')")
@@ -49,13 +52,15 @@ public class StockController {
         Map<String, Object> result = new HashMap<>();
         Optional<BigDecimal> calculated = stockService.calculateSellingPriceFromGoldRate(weightGrams, carat);
         if (calculated.isEmpty()) {
-            result.put("error", "Gold rate not set or invalid weight/carat. Please set today's gold price first.");
+            result.put("error", "Gold rate not set or invalid weight/carat. Set today's rates (Rates page) first.");
             return ResponseEntity.badRequest().body(result);
         }
         result.put("calculatedPrice", calculated.get());
-        goldPriceService.getPricePerGramForCarat(carat).ifPresent(rate -> result.put("goldRatePerGram", rate));
-        goldPriceService.getTodayOrLatestGoldPrice()
-                .ifPresent(gp -> result.put("rateDate", gp.getPriceDate().toString()));
+        dailyRateService.getGoldRateForCarat(carat).or(() -> goldPriceService.getPricePerGramForCarat(carat))
+                .ifPresent(rate -> result.put("goldRatePerGram", rate));
+        dailyRateService.getTodayOrLatest().ifPresent(r -> result.put("rateDate", r.getPriceDate().toString()));
+        if (result.get("rateDate") == null)
+            goldPriceService.getTodayOrLatestGoldPrice().ifPresent(gp -> result.put("rateDate", gp.getPriceDate().toString()));
         return ResponseEntity.ok(result);
     }
 
