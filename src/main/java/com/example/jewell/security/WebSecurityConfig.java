@@ -139,7 +139,7 @@ public class WebSecurityConfig {
         // Only allow specific origins (not wildcard)
         config.addAllowedOrigin("http://localhost:8000");
         config.addAllowedOrigin("http://localhost:3000");
-        config.addAllowedOrigin("https://strong-capybara-1b40c2.netlify.app");
+        config.addAllowedOrigin("https://gangajewellers.netlify.app");
         config.addAllowedOrigin("http://gangajewellers.in");
         config.addAllowedOrigin("https://gangajewellers.in");
         config.addAllowedOrigin("https://www.gangajewellers.in");
