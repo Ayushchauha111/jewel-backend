@@ -117,6 +117,7 @@ public class EmailService {
             html.append("<p><span>Subtotal</span><span>").append(formatCurrency(billing.getTotalAmount())).append("</span></p>");
         }
         html.append("<p><span>Discount</span><span>-").append(formatCurrency(billing.getDiscountAmount() != null ? billing.getDiscountAmount() : BigDecimal.ZERO)).append("</span></p>");
+        html.append("<p><span>Making Charges</span><span>").append(formatCurrency(billing.getMakingCharges() != null ? billing.getMakingCharges() : BigDecimal.ZERO)).append("</span></p>");
         html.append("<p><span><strong>Total</strong></span><span><strong>").append(formatCurrency(billing.getFinalAmount())).append("</strong></span></p>");
         if (billing.getPaidAmount() != null && billing.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
             html.append("<p><span>Paid</span><span>").append(formatCurrency(billing.getPaidAmount())).append("</span></p>");
@@ -137,9 +138,11 @@ public class EmailService {
         BigDecimal finalAmount = billing.getFinalAmount() != null ? billing.getFinalAmount() : BigDecimal.ZERO;
         BigDecimal paidAmount = billing.getPaidAmount() != null ? billing.getPaidAmount() : BigDecimal.ZERO;
         BigDecimal taxableAmount = finalAmount;
-        double gstRate = 0.03;
+        double gstRate = 0.015;
         BigDecimal cgstAmount = taxableAmount.multiply(BigDecimal.valueOf(gstRate)).setScale(2, RoundingMode.HALF_UP);
         BigDecimal sgstAmount = taxableAmount.multiply(BigDecimal.valueOf(gstRate)).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal discountAmount = billing.getDiscountAmount() != null ? billing.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal makingCharges = billing.getMakingCharges() != null ? billing.getMakingCharges() : BigDecimal.ZERO;
         BigDecimal totalGst = cgstAmount.add(sgstAmount);
         BigDecimal grandTotal = taxableAmount.add(totalGst);
         BigDecimal roundOff = grandTotal.setScale(0, RoundingMode.HALF_UP).subtract(grandTotal);
@@ -195,14 +198,18 @@ public class EmailService {
         if (totalDiamondAmt.compareTo(BigDecimal.ZERO) > 0) {
             html.append("<p><strong>Diamond:</strong> ").append(formatCurrency(totalDiamondAmt)).append("</p>");
         }
+        html.append("<p><strong>Subtotal:</strong> ").append(formatCurrency(totalAmount)).append("</p>");
+        html.append("<p><strong>Discount:</strong> -").append(formatCurrency(discountAmount)).append("</p>");
+        html.append("<p><strong>Making Charges:</strong> ").append(formatCurrency(makingCharges)).append("</p>");
         html.append("<p><strong>Total:</strong> ").append(formatCurrency(finalAmount)).append("</p>");
         html.append("<div class=\"payment\"><h3>Payment Details</h3>");
         html.append("<p><strong>Payment Method:</strong> ").append(escape(billing.getPaymentMethod() != null ? billing.getPaymentMethod().name() : "—")).append("</p>");
         html.append("<p><strong>Total Received Amount:</strong> ").append(formatCurrency(paidAmount)).append("</p></div>");
         html.append("<div class=\"tax\"><h3>Taxation Summary</h3>");
         html.append("<table><tr><td>Taxable Amount</td><td>").append(formatCurrency(taxableAmount)).append("</td></tr>");
-        html.append("<tr><td>CGST (3%)</td><td>").append(formatCurrency(cgstAmount)).append("</td></tr>");
-        html.append("<tr><td>SGST (3%)</td><td>").append(formatCurrency(sgstAmount)).append("</td></tr>");
+        html.append("<tr><td>CGST (1.5%)</td><td>").append(formatCurrency(cgstAmount)).append("</td></tr>");
+        html.append("<tr><td>SGST (1.5%)</td><td>").append(formatCurrency(sgstAmount)).append("</td></tr>");
+        html.append("<tr><td>GST (3%)</td><td>").append(formatCurrency(totalGst)).append("</td></tr>");
         html.append("<tr><td>Round Off</td><td>").append(formatCurrency(roundOff)).append("</td></tr>");
         html.append("<tr><td><strong>Total Amount</strong></td><td><strong>").append(formatCurrency(grandTotal.add(roundOff))).append("</strong></td></tr>");
         html.append("<tr><td>Net Received Amount</td><td>").append(formatCurrency(paidAmount)).append("</td></tr>");

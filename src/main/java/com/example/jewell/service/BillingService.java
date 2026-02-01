@@ -99,10 +99,10 @@ public class BillingService {
         }
 
         billing.setTotalAmount(totalAmount);
-        
-        BigDecimal finalAmount = totalAmount.subtract(
-            billing.getDiscountAmount() != null ? billing.getDiscountAmount() : BigDecimal.ZERO
-        );
+
+        BigDecimal discount = billing.getDiscountAmount() != null ? billing.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal makingCharges = billing.getMakingCharges() != null ? billing.getMakingCharges() : BigDecimal.ZERO;
+        BigDecimal finalAmount = totalAmount.subtract(discount).add(makingCharges);
         billing.setFinalAmount(finalAmount);
 
         // Handle paid amount - default to final amount if not specified

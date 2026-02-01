@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
@@ -65,10 +66,24 @@ public class WhatsAppService {
             message.append("\nGold/Metal: ₹").append(billing.getTotalAmount().subtract(billing.getTotalDiamondAmount()));
             message.append("\nDiamond: ₹").append(billing.getTotalDiamondAmount());
         }
-        if (billing.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
-            message.append("\nDiscount: ₹").append(billing.getDiscountAmount());
+        BigDecimal discount = billing.getDiscountAmount() != null ? billing.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal makingCharges = billing.getMakingCharges() != null ? billing.getMakingCharges() : BigDecimal.ZERO;
+        if (discount.compareTo(BigDecimal.ZERO) > 0) {
+            message.append("\nDiscount: -₹").append(discount);
+        }
+        if (makingCharges.compareTo(BigDecimal.ZERO) > 0) {
+            message.append("\nMaking Charges: ₹").append(makingCharges);
         }
         message.append("\n*Total: ₹").append(billing.getFinalAmount()).append("*");
+        if (isGst) {
+            BigDecimal finalAmt = billing.getFinalAmount() != null ? billing.getFinalAmount() : BigDecimal.ZERO;
+            BigDecimal cgst = finalAmt.multiply(BigDecimal.valueOf(0.015)).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal sgst = finalAmt.multiply(BigDecimal.valueOf(0.015)).setScale(2, RoundingMode.HALF_UP);
+            message.append("\nCGST (1.5%): ₹").append(cgst);
+            message.append("\nSGST (1.5%): ₹").append(sgst);
+            message.append("\nGST (3%): ₹").append(cgst.add(sgst));
+            message.append("\n*Total (incl. GST): ₹").append(finalAmt.add(cgst).add(sgst)).append("*");
+        }
         message.append("\nPayment: ").append(billing.getPaymentMethod());
         
         return message.toString();

@@ -133,6 +133,7 @@ public class BillPdfService {
             document.add(new Paragraph("Subtotal: " + formatCurrency(billing.getTotalAmount()), NORMAL_FONT));
         }
         document.add(new Paragraph("Discount: -" + formatCurrency(billing.getDiscountAmount() != null ? billing.getDiscountAmount() : BigDecimal.ZERO), NORMAL_FONT));
+        document.add(new Paragraph("Making Charges: " + formatCurrency(billing.getMakingCharges() != null ? billing.getMakingCharges() : BigDecimal.ZERO), NORMAL_FONT));
         document.add(new Paragraph("Total: " + formatCurrency(billing.getFinalAmount()), HEADER_FONT));
         if (billing.getPaidAmount() != null && billing.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
             document.add(new Paragraph("Paid: " + formatCurrency(billing.getPaidAmount()), NORMAL_FONT));
@@ -228,7 +229,24 @@ public class BillPdfService {
         if (totalDiamondAmt.compareTo(BigDecimal.ZERO) > 0) {
             document.add(new Paragraph("Diamond: " + formatCurrency(totalDiamondAmt), NORMAL_FONT));
         }
+        BigDecimal discount = billing.getDiscountAmount() != null ? billing.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal makingCharges = billing.getMakingCharges() != null ? billing.getMakingCharges() : BigDecimal.ZERO;
+        document.add(new Paragraph("Subtotal: " + formatCurrency(totalAmount), NORMAL_FONT));
+        document.add(new Paragraph("Discount: -" + formatCurrency(discount), NORMAL_FONT));
+        document.add(new Paragraph("Making Charges: " + formatCurrency(makingCharges), NORMAL_FONT));
         document.add(new Paragraph("Total: " + formatCurrency(billing.getFinalAmount()), HEADER_FONT));
+        document.add(new Paragraph(" "));
+        BigDecimal finalAmt = billing.getFinalAmount() != null ? billing.getFinalAmount() : BigDecimal.ZERO;
+        double gstRate = 0.015;
+        BigDecimal cgst = finalAmt.multiply(BigDecimal.valueOf(gstRate)).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal sgst = finalAmt.multiply(BigDecimal.valueOf(gstRate)).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalGst = cgst.add(sgst);
+        BigDecimal grandTotal = finalAmt.add(totalGst);
+        document.add(new Paragraph("Taxable Amount: " + formatCurrency(finalAmt), NORMAL_FONT));
+        document.add(new Paragraph("CGST (1.5%): " + formatCurrency(cgst), NORMAL_FONT));
+        document.add(new Paragraph("SGST (1.5%): " + formatCurrency(sgst), NORMAL_FONT));
+        document.add(new Paragraph("GST (3%): " + formatCurrency(totalGst), NORMAL_FONT));
+        document.add(new Paragraph("Total (incl. GST): " + formatCurrency(grandTotal), HEADER_FONT));
         document.add(new Paragraph(" "));
         document.add(new Paragraph("Payment Method: " + (billing.getPaymentMethod() != null ? billing.getPaymentMethod().name() : "—"), NORMAL_FONT));
         document.add(new Paragraph("Total Received: " + formatCurrency(billing.getPaidAmount() != null ? billing.getPaidAmount() : BigDecimal.ZERO), NORMAL_FONT));

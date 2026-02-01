@@ -38,6 +38,10 @@ public class Billing {
     @Column(name = "discount_amount", precision = 12, scale = 2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
+    /** Making charges (added to total after discount). */
+    @Column(name = "making_charges", precision = 12, scale = 2)
+    private BigDecimal makingCharges = BigDecimal.ZERO;
+
     @Column(name = "final_amount", precision = 12, scale = 2)
     private BigDecimal finalAmount;
 
@@ -126,6 +130,14 @@ public class Billing {
 
     public void setDiscountAmount(BigDecimal discountAmount) {
         this.discountAmount = discountAmount;
+    }
+
+    public BigDecimal getMakingCharges() {
+        return makingCharges;
+    }
+
+    public void setMakingCharges(BigDecimal makingCharges) {
+        this.makingCharges = makingCharges;
     }
 
     public BigDecimal getFinalAmount() {
