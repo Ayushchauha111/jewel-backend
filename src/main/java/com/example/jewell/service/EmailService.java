@@ -3,6 +3,7 @@ package com.example.jewell.service;
 import com.example.jewell.model.Billing;
 import com.example.jewell.model.BillingItem;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,9 @@ public class EmailService {
     private JavaMailSender mailSender;
     @Autowired
     private BillPdfService billPdfService;
+
+    @Value("${shop.gstin:09AXDPK0044L1ZI}")
+    private String shopGstin;
 
     private static final DecimalFormat CURRENCY_FORMAT = new DecimalFormat("₹#,##0.00", new DecimalFormatSymbols(Locale.ENGLISH));
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.ENGLISH);
@@ -158,6 +162,9 @@ public class EmailService {
         html.append("body{font-family:Arial,sans-serif;margin:20px;} table{border-collapse:collapse;width:100%;margin:12px 0;} th,td{border:1px solid #ddd;padding:6px;text-align:left;} th{background:#f2f2f2;} .billto,.payment,.tax{margin:16px 0;} .sig{display:inline-block;margin-right:40px;}");
         html.append("</style></head><body>");
         html.append("<h2>Tax Invoice</h2>");
+        if (shopGstin != null && !shopGstin.isEmpty()) {
+            html.append("<p><strong>GSTIN:</strong> ").append(escape(shopGstin)).append("</p>");
+        }
         html.append("<p><strong>Invoice No:</strong> ").append(escape(billing.getBillNumber())).append("</p>");
         html.append("<p><strong>Date:</strong> ").append(formatDate(billing.getCreatedAt())).append("</p>");
         html.append("<div class=\"billto\"><h3>Bill To</h3>");

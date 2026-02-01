@@ -41,23 +41,47 @@ public class StockController {
     private DailyRateService dailyRateService;
 
     /**
-     * Calculate article selling price from today's (or latest) gold rate: weight × price per gram for carat.
-     * Uses unified rates first. GET /api/stock/calculate-price?weightGrams=10&carat=22
+     * Public price estimate for catalog: gold value + making + GST. No auth required.
+     * GET /api/stock/estimate-price?weightGrams=6&carat=22
+     */
+    @GetMapping("/estimate-price")
+    public ResponseEntity<Map<String, Object>> estimatePrice(
+            @RequestParam BigDecimal weightGrams,
+            @RequestParam BigDecimal carat,
+            @RequestParam(required = false) BigDecimal makingChargesPerGram) {
+        Map<String, Object> result = new HashMap<>();
+        Optional<Map<String, Object>> breakdown = stockService.calculatePriceWithMakingAndGst(weightGrams, carat, makingChargesPerGram);
+        if (breakdown.isEmpty()) {
+            result.put("error", "Gold rate not set. Price as per current gold rate.");
+            return ResponseEntity.ok(result); // 200 so catalog can show message
+        }
+        Map<String, Object> b = breakdown.get();
+        result.put("totalPrice", b.get("totalPrice"));
+        result.put("goldValue", b.get("goldValue"));
+        result.put("makingCharges", b.get("makingCharges"));
+        result.put("gstTotal", b.get("gstTotal"));
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Calculate article selling price: gold value + making charges (per gram) + CGST 1.5% + SGST 1.5%.
+     * GET /api/stock/calculate-price?weightGrams=10&carat=22
      */
     @GetMapping("/calculate-price")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> calculatePriceFromGoldRate(
             @RequestParam BigDecimal weightGrams,
-            @RequestParam BigDecimal carat) {
+            @RequestParam BigDecimal carat,
+            @RequestParam(required = false) BigDecimal makingChargesPerGram) {
         Map<String, Object> result = new HashMap<>();
-        Optional<BigDecimal> calculated = stockService.calculateSellingPriceFromGoldRate(weightGrams, carat);
-        if (calculated.isEmpty()) {
+        Optional<Map<String, Object>> breakdown = stockService.calculatePriceWithMakingAndGst(weightGrams, carat, makingChargesPerGram);
+        if (breakdown.isEmpty()) {
             result.put("error", "Gold rate not set or invalid weight/carat. Set today's rates (Rates page) first.");
             return ResponseEntity.badRequest().body(result);
         }
-        result.put("calculatedPrice", calculated.get());
-        dailyRateService.getGoldRateForCarat(carat).or(() -> goldPriceService.getPricePerGramForCarat(carat))
-                .ifPresent(rate -> result.put("goldRatePerGram", rate));
+        Map<String, Object> b = breakdown.get();
+        result.putAll(b);
+        result.put("calculatedPrice", b.get("totalPrice")); // backward compatibility: total per unit
         dailyRateService.getTodayOrLatest().ifPresent(r -> result.put("rateDate", r.getPriceDate().toString()));
         if (result.get("rateDate") == null)
             goldPriceService.getTodayOrLatestGoldPrice().ifPresent(gp -> result.put("rateDate", gp.getPriceDate().toString()));

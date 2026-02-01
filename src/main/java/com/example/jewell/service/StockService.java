@@ -65,6 +65,13 @@ public class StockService {
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
 
+    @Value("${shop.makingChargesPerGram:1150}")
+    private BigDecimal makingChargesPerGram;
+
+    private static final BigDecimal GST_RATE = new BigDecimal("0.03");   // 3% total
+    private static final BigDecimal CGST_RATE = new BigDecimal("0.015"); // 1.5%
+    private static final BigDecimal SGST_RATE = new BigDecimal("0.015"); // 1.5%
+
     public List<Stock> getAllStock() {
         return stockRepository.findAll();
     }
@@ -151,6 +158,46 @@ public class StockService {
         Optional<BigDecimal> ratePerGram = dailyRateService.getGoldRateForCarat(carat)
                 .or(() -> goldPriceService.getPricePerGramForCarat(carat));
         return ratePerGram.map(rate -> weightGrams.multiply(rate).setScale(2, RoundingMode.HALF_UP));
+    }
+
+    /**
+     * Full price breakdown: gold value + making charges (per gram) + CGST 1.5% + SGST 1.5% (3% total).
+     * Subtotal = goldValue + makingCharges; GST on subtotal; totalPrice = subtotal + GST.
+     * If articleMakingChargesPerGram is not null and > 0, use it; else use global shop.makingChargesPerGram.
+     */
+    public Optional<Map<String, Object>> calculatePriceWithMakingAndGst(BigDecimal weightGrams, BigDecimal carat) {
+        return calculatePriceWithMakingAndGst(weightGrams, carat, null);
+    }
+
+    public Optional<Map<String, Object>> calculatePriceWithMakingAndGst(BigDecimal weightGrams, BigDecimal carat, BigDecimal articleMakingChargesPerGram) {
+        if (weightGrams == null || weightGrams.compareTo(BigDecimal.ZERO) <= 0
+                || carat == null || carat.compareTo(BigDecimal.ZERO) <= 0) {
+            return Optional.empty();
+        }
+        Optional<BigDecimal> ratePerGram = dailyRateService.getGoldRateForCarat(carat)
+                .or(() -> goldPriceService.getPricePerGramForCarat(carat));
+        if (ratePerGram.isEmpty()) return Optional.empty();
+
+        BigDecimal mcPerGram = (articleMakingChargesPerGram != null && articleMakingChargesPerGram.compareTo(BigDecimal.ZERO) > 0)
+                ? articleMakingChargesPerGram : makingChargesPerGram;
+        BigDecimal goldValue = weightGrams.multiply(ratePerGram.get()).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal makingCharges = weightGrams.multiply(mcPerGram).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal subtotal = goldValue.add(makingCharges);
+        BigDecimal gstTotal = subtotal.multiply(GST_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal cgst = subtotal.multiply(CGST_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal sgst = subtotal.multiply(SGST_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalPrice = subtotal.add(gstTotal);
+
+        Map<String, Object> out = new java.util.HashMap<>();
+        out.put("goldValue", goldValue);
+        out.put("makingCharges", makingCharges);
+        out.put("subtotal", subtotal);
+        out.put("cgst", cgst);
+        out.put("sgst", sgst);
+        out.put("gstTotal", gstTotal);
+        out.put("totalPrice", totalPrice);
+        out.put("goldRatePerGram", ratePerGram.get());
+        return Optional.of(out);
     }
 
     public Stock createStock(Stock stock) {
@@ -266,9 +313,11 @@ public class StockService {
             
             stock.setWeightGrams(stockDetails.getWeightGrams());
             stock.setCarat(stockDetails.getCarat());
+            stock.setDiamondCarat(stockDetails.getDiamondCarat());
             stock.setPurityPercentage(stockDetails.getPurityPercentage());
             stock.setPurchasePrice(stockDetails.getPurchasePrice());
             stock.setSellingPrice(stockDetails.getSellingPrice());
+            stock.setMakingChargesPerGram(stockDetails.getMakingChargesPerGram());
             stock.setQuantity(stockDetails.getQuantity() != null ? stockDetails.getQuantity() : stock.getQuantity() != null ? stock.getQuantity() : 1);
             stock.setSize(stockDetails.getSize() != null ? stockDetails.getSize() : stock.getSize());
             stock.setDescription(stockDetails.getDescription() != null ? stockDetails.getDescription() : stock.getDescription());

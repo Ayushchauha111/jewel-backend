@@ -4,6 +4,7 @@ import com.example.jewell.model.Billing;
 import com.example.jewell.model.BillingItem;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -20,6 +21,9 @@ public class BillPdfService {
     private static final Font TITLE_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
     private static final Font HEADER_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
     private static final Font NORMAL_FONT = FontFactory.getFont(FontFactory.HELVETICA, 9);
+
+    @Value("${shop.gstin:09AXDPK0044L1ZI}")
+    private String shopGstin;
 
     private String formatCurrency(BigDecimal amount) {
         if (amount == null) return "₹0.00";
@@ -145,6 +149,9 @@ public class BillPdfService {
     private void buildGstPdf(Document document, Billing billing) throws DocumentException {
         document.add(new Paragraph("Tax Invoice", TITLE_FONT));
         document.add(new Paragraph(" "));
+        if (shopGstin != null && !shopGstin.isEmpty()) {
+            document.add(new Paragraph("GSTIN: " + shopGstin, NORMAL_FONT));
+        }
         document.add(new Paragraph("Invoice No: " + billing.getBillNumber(), NORMAL_FONT));
         document.add(new Paragraph("Date: " + formatDate(billing.getCreatedAt()), NORMAL_FONT));
         document.add(new Paragraph("Bill To: " + (billing.getCustomer() != null ? billing.getCustomer().getName() : "—"), NORMAL_FONT));

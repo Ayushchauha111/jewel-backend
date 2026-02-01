@@ -51,6 +51,9 @@ public class Stock {
     @Column(name = "selling_price", precision = 12, scale = 2)
     private BigDecimal sellingPrice;
 
+    @Column(name = "making_charges_per_gram", precision = 10, scale = 2)
+    private BigDecimal makingChargesPerGram;
+
     @Column(name = "current_gold_price_per_gram", precision = 10, scale = 2)
     private BigDecimal currentGoldPricePerGram;
 
@@ -175,6 +178,14 @@ public class Stock {
 
     public void setSellingPrice(BigDecimal sellingPrice) {
         this.sellingPrice = sellingPrice;
+    }
+
+    public BigDecimal getMakingChargesPerGram() {
+        return makingChargesPerGram;
+    }
+
+    public void setMakingChargesPerGram(BigDecimal makingChargesPerGram) {
+        this.makingChargesPerGram = makingChargesPerGram;
     }
 
     public BigDecimal getCurrentGoldPricePerGram() {
