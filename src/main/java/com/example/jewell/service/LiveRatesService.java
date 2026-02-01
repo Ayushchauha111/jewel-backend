@@ -39,6 +39,24 @@ public class LiveRatesService {
     
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Random random = new Random();
+
+    /** External streaming URL (same as frontend) – proxied to avoid CORS on prod */
+    private static final String EXTERNAL_STREAM_URL = "https://bcast.gangajewellers.co.in:7768/VOTSBroadcastStreaming/Services/xml/GetLiveRateByTemplateID/ganga";
+
+    /**
+     * Proxy the external live-rate stream. Called by frontend to avoid CORS when site is on different origin (e.g. gangajewellers.in).
+     */
+    public String fetchExternalStream() {
+        try {
+            ResponseEntity<String> response = restTemplate.getForEntity(EXTERNAL_STREAM_URL, String.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+        } catch (Exception e) {
+            System.err.println("Live rates stream proxy failed: " + e.getMessage());
+        }
+        return null;
+    }
     
     /**
      * Fetch live gold and silver rates
