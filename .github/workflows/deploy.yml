@@ -28,15 +28,35 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            mkdir -p ~/.oci
-            echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
-            chmod 600 ~/.oci/oci_api_key.pem
-            echo "[DEFAULT]" > ~/.oci/config
-            echo "user=${{ secrets.OCI_USER_ID }}" >> ~/.oci/config
-            echo "fingerprint=${{ secrets.OCI_FINGERPRINT }}" >> ~/.oci/config
-            echo "tenancy=${{ secrets.OCI_TENANCY }}" >> ~/.oci/config
-            echo "region=${{ secrets.OCI_REGION }}" >> ~/.oci/config
-            echo "key_file=~/.oci/oci_api_key.pem" >> ~/.oci/config
+            # 1. Clean existing directory
+            rm -rf /home/ubuntu/.oci
+            mkdir -p /home/ubuntu/.oci
+            
+            # 2. Write Private Key (cat <<EOF handles newlines and special characters)
+            cat <<EOF > /home/ubuntu/.oci/oci_api_key.pem
+            ${{ secrets.OCI_PRIVATE_KEY }}
+            EOF
+            
+            # 3. Create Config File
+            cat <<EOF > /home/ubuntu/.oci/config
+            [DEFAULT]
+            user=${{ secrets.OCI_USER_ID }}
+            fingerprint=${{ secrets.OCI_FINGERPRINT }}
+            tenancy=${{ secrets.OCI_TENANCY }}
+            region=${{ secrets.OCI_REGION }}
+            key_file=/root/.oci/oci_api_key.pem
+            EOF
+            
+            # 4. Sync to root (because the JVM insists on looking here in systemd)
+            sudo mkdir -p /root/.oci
+            sudo cp /home/ubuntu/.oci/oci_api_key.pem /root/.oci/oci_api_key.pem
+            sudo cp /home/ubuntu/.oci/config /root/.oci/config
+            
+            # 5. Set strict permissions (OCI SDK requires 600)
+            sudo chmod 700 /root/.oci
+            sudo chmod 600 /root/.oci/config /root/.oci/oci_api_key.pem
+            sudo chown -R ubuntu:ubuntu /home/ubuntu/.oci
+            chmod 600 /home/ubuntu/.oci/config /home/ubuntu/.oci/oci_api_key.pem
 
       - name: Verify OCI Files on Remote Server
         uses: appleboy/ssh-action@v0.1.10
