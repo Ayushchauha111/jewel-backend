@@ -28,20 +28,31 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            OCI_DIR=/home/ubuntu/.oci
-            mkdir -p "$OCI_DIR"
-            echo "${{ secrets.OCI_PRIVATE_KEY }}" > "$OCI_DIR/oci_api_key.pem"
-            chmod 600 "$OCI_DIR/oci_api_key.pem"
-            echo "[DEFAULT]" > "$OCI_DIR/config"
-            echo "user=${{ secrets.OCI_USER_ID }}" >> "$OCI_DIR/config"
-            echo "fingerprint=${{ secrets.OCI_FINGERPRINT }}" >> "$OCI_DIR/config"
-            echo "tenancy=${{ secrets.OCI_TENANCY }}" >> "$OCI_DIR/config"
-            echo "region=${{ secrets.OCI_REGION }}" >> "$OCI_DIR/config"
-            echo "key_file=/home/ubuntu/.oci/oci_api_key.pem" >> "$OCI_DIR/config"
-            # So the app finds OCI config when run via systemd (different user's home)
+            # Ubuntu's .oci (key written here first so newlines are preserved)
+            OCI_UBUNTU=/home/ubuntu/.oci
+            mkdir -p "$OCI_UBUNTU"
+            echo "${{ secrets.OCI_PRIVATE_KEY }}" > "$OCI_UBUNTU/oci_api_key.pem"
+            chmod 600 "$OCI_UBUNTU/oci_api_key.pem"
+            echo "[DEFAULT]" > "$OCI_UBUNTU/config"
+            echo "user=${{ secrets.OCI_USER_ID }}" >> "$OCI_UBUNTU/config"
+            echo "fingerprint=${{ secrets.OCI_FINGERPRINT }}" >> "$OCI_UBUNTU/config"
+            echo "tenancy=${{ secrets.OCI_TENANCY }}" >> "$OCI_UBUNTU/config"
+            echo "region=${{ secrets.OCI_REGION }}" >> "$OCI_UBUNTU/config"
+            echo "key_file=$OCI_UBUNTU/oci_api_key.pem" >> "$OCI_UBUNTU/config"
+            # Root's .oci (service usually runs as root via systemd) – copy key so root can read it
+            sudo mkdir -p /root/.oci
+            sudo cp "$OCI_UBUNTU/oci_api_key.pem" /root/.oci/oci_api_key.pem
+            sudo chmod 600 /root/.oci/oci_api_key.pem
+            echo "[DEFAULT]" | sudo tee /root/.oci/config > /dev/null
+            echo "user=${{ secrets.OCI_USER_ID }}" | sudo tee -a /root/.oci/config > /dev/null
+            echo "fingerprint=${{ secrets.OCI_FINGERPRINT }}" | sudo tee -a /root/.oci/config > /dev/null
+            echo "tenancy=${{ secrets.OCI_TENANCY }}" | sudo tee -a /root/.oci/config > /dev/null
+            echo "region=${{ secrets.OCI_REGION }}" | sudo tee -a /root/.oci/config > /dev/null
+            echo "key_file=/root/.oci/oci_api_key.pem" | sudo tee -a /root/.oci/config > /dev/null
+            # Point app to root's config (works when process runs as root)
             sudo mkdir -p /etc/systemd/system/myapp.service.d
             echo '[Service]' | sudo tee /etc/systemd/system/myapp.service.d/oci-env.conf
-            echo 'Environment=OCI_CONFIG_FILE=/home/ubuntu/.oci/config' | sudo tee -a /etc/systemd/system/myapp.service.d/oci-env.conf
+            echo 'Environment=OCI_CONFIG_FILE=/root/.oci/config' | sudo tee -a /etc/systemd/system/myapp.service.d/oci-env.conf
             sudo systemctl daemon-reload
 
       - name: Verify OCI Files on Remote Server
