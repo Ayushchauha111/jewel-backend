@@ -6,16 +6,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -39,20 +42,22 @@ public class BillingService {
     private IncomeExpenseService incomeExpenseService;
 
     public List<Billing> getAllBills() {
-        return billingRepository.findAll();
+        return billingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
     public Page<Billing> getAllBillsPaginated(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return billingRepository.findAll(pageable);
     }
 
     public List<Billing> searchBills(String query) {
-        return billingRepository.searchBills(query);
+        return billingRepository.searchBills(query).stream()
+                .sorted(Comparator.comparing(Billing::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
     }
 
     public Page<Billing> searchBillsPaginated(String query, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return billingRepository.searchBills(query, pageable);
     }
 

@@ -47,6 +47,7 @@ public class DailyRateService {
             e.setGold24K(rate.getGold24K());
             e.setSilverPerGram(rate.getSilverPerGram());
             e.setDiamondPerCarat(rate.getDiamondPerCarat());
+            e.setMakingChargesPerGram(rate.getMakingChargesPerGram());
             e.setNotes(rate.getNotes());
             return dailyRateRepository.save(e);
         }

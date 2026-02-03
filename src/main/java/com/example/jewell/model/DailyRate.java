@@ -47,6 +47,10 @@ public class DailyRate {
     @Column(name = "diamond_per_carat", precision = 12, scale = 2)
     private BigDecimal diamondPerCarat;
 
+    /** Making charges per gram (₹/g) – default for billing when no item-level rate. */
+    @Column(name = "making_charges_per_gram", precision = 10, scale = 2)
+    private BigDecimal makingChargesPerGram;
+
     @Column(name = "notes", length = 500)
     private String notes;
 
@@ -81,6 +85,8 @@ public class DailyRate {
     public void setSilverPerGram(BigDecimal silverPerGram) { this.silverPerGram = silverPerGram; }
     public BigDecimal getDiamondPerCarat() { return diamondPerCarat; }
     public void setDiamondPerCarat(BigDecimal diamondPerCarat) { this.diamondPerCarat = diamondPerCarat; }
+    public BigDecimal getMakingChargesPerGram() { return makingChargesPerGram; }
+    public void setMakingChargesPerGram(BigDecimal makingChargesPerGram) { this.makingChargesPerGram = makingChargesPerGram; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
     public LocalDateTime getCreatedAt() { return createdAt; }
