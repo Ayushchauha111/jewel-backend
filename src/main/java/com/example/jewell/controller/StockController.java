@@ -48,9 +48,10 @@ public class StockController {
     public ResponseEntity<Map<String, Object>> estimatePrice(
             @RequestParam BigDecimal weightGrams,
             @RequestParam BigDecimal carat,
-            @RequestParam(required = false) BigDecimal makingChargesPerGram) {
+            @RequestParam(required = false) BigDecimal makingChargesPerGram,
+            @RequestParam(required = false) String category) {
         Map<String, Object> result = new HashMap<>();
-        Optional<Map<String, Object>> breakdown = stockService.calculatePriceWithMakingAndGst(weightGrams, carat, makingChargesPerGram);
+        Optional<Map<String, Object>> breakdown = stockService.calculatePriceWithMakingAndGst(weightGrams, carat, makingChargesPerGram, category);
         if (breakdown.isEmpty()) {
             result.put("error", "Gold rate not set. Price as per current gold rate.");
             return ResponseEntity.ok(result); // 200 so catalog can show message
@@ -72,9 +73,10 @@ public class StockController {
     public ResponseEntity<Map<String, Object>> calculatePriceFromGoldRate(
             @RequestParam BigDecimal weightGrams,
             @RequestParam BigDecimal carat,
-            @RequestParam(required = false) BigDecimal makingChargesPerGram) {
+            @RequestParam(required = false) BigDecimal makingChargesPerGram,
+            @RequestParam(required = false) String category) {
         Map<String, Object> result = new HashMap<>();
-        Optional<Map<String, Object>> breakdown = stockService.calculatePriceWithMakingAndGst(weightGrams, carat, makingChargesPerGram);
+        Optional<Map<String, Object>> breakdown = stockService.calculatePriceWithMakingAndGst(weightGrams, carat, makingChargesPerGram, category);
         if (breakdown.isEmpty()) {
             result.put("error", "Gold rate not set or invalid weight/carat. Set today's rates (Rates page) first.");
             return ResponseEntity.badRequest().body(result);

@@ -54,6 +54,9 @@ public class StockService {
     private com.example.jewell.service.DailyRateService dailyRateService;
 
     @Autowired
+    private CategoryMakingConfigService categoryMakingConfigService;
+
+    @Autowired
     private StockHistoryRepository stockHistoryRepository;
 
     @Autowired
@@ -163,13 +166,17 @@ public class StockService {
     /**
      * Full price breakdown: gold value + making charges (per gram) + CGST 1.5% + SGST 1.5% (3% total).
      * Subtotal = goldValue + makingCharges; GST on subtotal; totalPrice = subtotal + GST.
-     * If articleMakingChargesPerGram is not null and > 0, use it; else use global shop.makingChargesPerGram.
+     * Making per gram resolution: item override > category config > daily rate making > shop default.
      */
     public Optional<Map<String, Object>> calculatePriceWithMakingAndGst(BigDecimal weightGrams, BigDecimal carat) {
-        return calculatePriceWithMakingAndGst(weightGrams, carat, null);
+        return calculatePriceWithMakingAndGst(weightGrams, carat, null, null);
     }
 
     public Optional<Map<String, Object>> calculatePriceWithMakingAndGst(BigDecimal weightGrams, BigDecimal carat, BigDecimal articleMakingChargesPerGram) {
+        return calculatePriceWithMakingAndGst(weightGrams, carat, articleMakingChargesPerGram, null);
+    }
+
+    public Optional<Map<String, Object>> calculatePriceWithMakingAndGst(BigDecimal weightGrams, BigDecimal carat, BigDecimal articleMakingChargesPerGram, String category) {
         if (weightGrams == null || weightGrams.compareTo(BigDecimal.ZERO) <= 0
                 || carat == null || carat.compareTo(BigDecimal.ZERO) <= 0) {
             return Optional.empty();
@@ -178,9 +185,19 @@ public class StockService {
                 .or(() -> goldPriceService.getPricePerGramForCarat(carat));
         if (ratePerGram.isEmpty()) return Optional.empty();
 
-        // Default: shop.makingChargesPerGram from property; else use item-level makingChargesPerGram when set
-        BigDecimal mcPerGram = (articleMakingChargesPerGram != null && articleMakingChargesPerGram.compareTo(BigDecimal.ZERO) > 0)
-                ? articleMakingChargesPerGram : makingChargesPerGram;
+        // Making per gram: item override > category config > daily rate > shop default
+        BigDecimal mcPerGram = null;
+        if (articleMakingChargesPerGram != null && articleMakingChargesPerGram.compareTo(BigDecimal.ZERO) > 0) {
+            mcPerGram = articleMakingChargesPerGram;
+        } else if (category != null && !category.isBlank()) {
+            mcPerGram = categoryMakingConfigService.getMakingChargesPerGramForCategory(category.trim()).orElse(null);
+        }
+        if (mcPerGram == null) {
+            mcPerGram = dailyRateService.getTodayOrLatest()
+                    .map(com.example.jewell.model.DailyRate::getMakingChargesPerGram)
+                    .filter(mc -> mc != null && mc.compareTo(BigDecimal.ZERO) > 0)
+                    .orElse(makingChargesPerGram);
+        }
         BigDecimal goldValue = weightGrams.multiply(ratePerGram.get()).setScale(2, RoundingMode.HALF_UP);
         BigDecimal makingCharges = weightGrams.multiply(mcPerGram).setScale(2, RoundingMode.HALF_UP);
         BigDecimal subtotal = goldValue.add(makingCharges);
