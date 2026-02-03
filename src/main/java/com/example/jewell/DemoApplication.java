@@ -7,8 +7,8 @@ import org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoCo
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication(exclude = {
-		// Exclude Redis auto-configuration - we'll handle it manually via RedisCo
-		// This prevents Spring Boot from auto-configuring Redis
+		// Exclude Redis auto-configuration - we'll handle it manually via RedisConfig
+		// This prevents Spring Boot from auto-configuring Redis when it's not available
 		RedisAutoConfiguration.class,
 		RedisRepositoriesAutoConfiguration.class
 })
