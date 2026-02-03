@@ -178,6 +178,7 @@ public class StockService {
                 .or(() -> goldPriceService.getPricePerGramForCarat(carat));
         if (ratePerGram.isEmpty()) return Optional.empty();
 
+        // Default: shop.makingChargesPerGram from property; else use item-level makingChargesPerGram when set
         BigDecimal mcPerGram = (articleMakingChargesPerGram != null && articleMakingChargesPerGram.compareTo(BigDecimal.ZERO) > 0)
                 ? articleMakingChargesPerGram : makingChargesPerGram;
         BigDecimal goldValue = weightGrams.multiply(ratePerGram.get()).setScale(2, RoundingMode.HALF_UP);
