@@ -28,16 +28,14 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. Clean and Setup for ubuntu user
+            # 1. Setup ubuntu user's directory
             rm -rf /home/ubuntu/.oci
             mkdir -p /home/ubuntu/.oci
             
-            # 2. Write Private Key (cat <<EOF handles newlines correctly)
-            cat <<EOF > /home/ubuntu/.oci/oci_api_key.pem
-            ${{ secrets.OCI_PRIVATE_KEY }}
-            EOF
+            # 2. Write Private Key using printf to preserve exact RSA formatting
+            printf "%s\n" "${{ secrets.OCI_PRIVATE_KEY }}" > /home/ubuntu/.oci/oci_api_key.pem
             
-            # 3. Create Config File for ubuntu (pointing to its own key)
+            # 3. Create Config File for ubuntu
             cat <<EOF > /home/ubuntu/.oci/config
             [DEFAULT]
             user=${{ secrets.OCI_USER_ID }}
@@ -47,37 +45,29 @@ jobs:
             key_file=/home/ubuntu/.oci/oci_api_key.pem
             EOF
             
-            # 4. Sync to root for the Systemd Service
+            # 4. Sync to root for the systemd service
             sudo mkdir -p /root/.oci
             sudo cp /home/ubuntu/.oci/oci_api_key.pem /root/.oci/oci_api_key.pem
             sudo cp /home/ubuntu/.oci/config /root/.oci/config
             
-            # 5. Fix the path inside the ROOT config to point to /root
+            # 5. Fix the path inside the ROOT config to point to root key
             sudo sed -i 's|/home/ubuntu/|/root/|g' /root/.oci/config
             
-            # 6. Set strict permissions (OCI SDK requirement)
+            # 6. Set strict permissions (OCI SDK will fail if too broad)
             sudo chmod 700 /root/.oci
             sudo chmod 600 /root/.oci/config /root/.oci/oci_api_key.pem
             sudo chown -R ubuntu:ubuntu /home/ubuntu/.oci
             chmod 600 /home/ubuntu/.oci/config /home/ubuntu/.oci/oci_api_key.pem
 
-      - name: Verify OCI Files on Remote Server
+      - name: Verify OCI Authentication
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "--- Checking Ubuntu Config ---"
-            ls -la /home/ubuntu/.oci
-            cat /home/ubuntu/.oci/config
-            
-            echo "--- Checking Root Config (Used by Service) ---"
-            sudo ls -la /root/.oci
-            sudo cat /root/.oci/config
-            
-            echo "--- Testing Authentication ---"
-            # This should return your namespace if everything is correct
+            echo "--- Testing OCI CLI Authentication ---"
+            # Attempt to get namespace using the newly created config
             /home/ubuntu/bin/oci os ns get --config-file /home/ubuntu/.oci/config
 
       - name: Deploy JAR to Oracle Cloud
@@ -96,5 +86,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            # Kill process on 8000 to prevent 'Port already in use' errors
+            sudo fuser -k 8000/tcp || true
             sudo systemctl daemon-reload
             sudo systemctl restart myapp
