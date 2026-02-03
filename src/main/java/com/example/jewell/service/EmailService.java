@@ -83,7 +83,7 @@ public class EmailService {
             html.append("<p><strong>Phone:</strong> ").append(escape(billing.getCustomer().getPhone())).append("</p>");
         }
         html.append("<table><thead><tr><th>Item</th><th>Article Code</th><th>Carat</th><th>Diamond Ct</th><th>Qty</th><th>Rate (₹/g)</th><th>Total</th></tr></thead><tbody>");
-
+        
         for (BillingItem item : billing.getItems()) {
             String articleCode = item.getArticleCode();
             if ((articleCode == null || articleCode.isEmpty()) && item.getStock() != null) {

@@ -22,8 +22,27 @@ public class BillPdfService {
     private static final Font HEADER_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
     private static final Font NORMAL_FONT = FontFactory.getFont(FontFactory.HELVETICA, 9);
 
+    /** GST invoice: A4 with margins so content fits without cutting */
+    private static final float A4_MARGIN = 45f;
+    /** Normal receipt: 13 cm × 9 cm page (width × height) */
+    private static final float NORMAL_PAGE_WIDTH_MM = 130f;
+    private static final float NORMAL_PAGE_HEIGHT_MM = 90f;
+    private static final float MM_TO_PT = 72f / 25.4f;
+    /** Normal receipt uses smaller fonts to fit 13×9 cm */
+    private static final Font NORMAL_RECEIPT_TITLE_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+    private static final Font NORMAL_RECEIPT_HEADER_FONT = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+    private static final Font NORMAL_RECEIPT_FONT = FontFactory.getFont(FontFactory.HELVETICA, 7);
+    /** GST table font slightly smaller so 12 columns fit on A4 */
+    private static final Font GST_TABLE_FONT = FontFactory.getFont(FontFactory.HELVETICA, 8);
+
     @Value("${shop.gstin:09AXDPK0044L1ZI}")
     private String shopGstin;
+
+    private static Rectangle normalReceiptPageSize() {
+        float w = NORMAL_PAGE_WIDTH_MM * MM_TO_PT;
+        float h = NORMAL_PAGE_HEIGHT_MM * MM_TO_PT;
+        return new Rectangle(w, h);
+    }
 
     private String formatCurrency(BigDecimal amount) {
         if (amount == null) return "₹0.00";
@@ -37,11 +56,19 @@ public class BillPdfService {
 
     /**
      * Generate PDF bytes for the bill (Normal receipt or GST invoice).
+     * GST invoice: A4, fitted with no content cutting.
+     * Normal receipt: 13 cm × 9 cm page, fitted with no content cutting.
      */
     public byte[] generatePdf(Billing billing, String receiptType) {
         boolean isGst = "GST".equalsIgnoreCase(receiptType);
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            Document document = new Document(PageSize.A4, 36, 36, 36, 36);
+            Document document;
+            if (isGst) {
+                document = new Document(PageSize.A4, A4_MARGIN, A4_MARGIN, A4_MARGIN, A4_MARGIN);
+            } else {
+                float margin = 12f;
+                document = new Document(normalReceiptPageSize(), margin, margin, margin, margin);
+            }
             PdfWriter.getInstance(document, baos);
             document.open();
 
@@ -65,13 +92,13 @@ public class BillPdfService {
     }
 
     private void buildNormalPdf(Document document, Billing billing) throws DocumentException {
-        document.add(new Paragraph("Receipt", TITLE_FONT));
+        document.add(new Paragraph("Receipt", NORMAL_RECEIPT_TITLE_FONT));
         document.add(new Paragraph(" "));
-        document.add(new Paragraph("Bill No: " + billing.getBillNumber(), NORMAL_FONT));
-        document.add(new Paragraph("Date: " + formatDate(billing.getCreatedAt()), NORMAL_FONT));
-        document.add(new Paragraph("Customer: " + (billing.getCustomer() != null ? billing.getCustomer().getName() : "—"), NORMAL_FONT));
+        document.add(new Paragraph("Bill No: " + billing.getBillNumber(), NORMAL_RECEIPT_FONT));
+        document.add(new Paragraph("Date: " + formatDate(billing.getCreatedAt()), NORMAL_RECEIPT_FONT));
+        document.add(new Paragraph("Customer: " + (billing.getCustomer() != null ? billing.getCustomer().getName() : "—"), NORMAL_RECEIPT_FONT));
         if (billing.getCustomer() != null && billing.getCustomer().getPhone() != null) {
-            document.add(new Paragraph("Phone: " + billing.getCustomer().getPhone(), NORMAL_FONT));
+            document.add(new Paragraph("Phone: " + billing.getCustomer().getPhone(), NORMAL_RECEIPT_FONT));
         }
         document.add(new Paragraph(" "));
 
@@ -79,7 +106,7 @@ public class BillPdfService {
         table.setWidthPercentage(100f);
         table.setWidths(new float[]{2.5f, 1.5f, 0.8f, 1f, 0.5f, 1.2f, 1.2f});
         String[] headers = {"Item", "Article Code", "Carat", "Diamond Ct", "Qty", "Rate (₹/g)", "Total"};
-        for (String h : headers) addCell(table, h, HEADER_FONT);
+        for (String h : headers) addCell(table, h, NORMAL_RECEIPT_HEADER_FONT);
 
         for (BillingItem item : billing.getItems()) {
             String articleCode = item.getArticleCode();
@@ -98,30 +125,30 @@ public class BillPdfService {
             BigDecimal unitPrice = item.getUnitPrice();
 
             if (diamondAmt.compareTo(BigDecimal.ZERO) > 0) {
-                addCell(table, itemName + " (Gold)", NORMAL_FONT);
-                addCell(table, articleCode != null ? articleCode : "—", NORMAL_FONT);
-                addCell(table, carat != null ? carat.toString() : "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, String.valueOf(qty), NORMAL_FONT);
-                addCell(table, ratePerGram != null ? formatCurrency(ratePerGram) : "—", NORMAL_FONT);
-                addCell(table, formatCurrency(metalAmt), NORMAL_FONT);
-                addCell(table, "Diamond", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, diamondCt != null ? diamondCt.multiply(BigDecimal.valueOf(qty)).setScale(3, RoundingMode.HALF_UP).toString() : "—", NORMAL_FONT);
-                addCell(table, String.valueOf(qty), NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, formatCurrency(diamondAmt), NORMAL_FONT);
+                addCell(table, itemName + " (Gold)", NORMAL_RECEIPT_FONT);
+                addCell(table, articleCode != null ? articleCode : "—", NORMAL_RECEIPT_FONT);
+                addCell(table, carat != null ? carat.toString() : "—", NORMAL_RECEIPT_FONT);
+                addCell(table, "—", NORMAL_RECEIPT_FONT);
+                addCell(table, String.valueOf(qty), NORMAL_RECEIPT_FONT);
+                addCell(table, ratePerGram != null ? formatCurrency(ratePerGram) : "—", NORMAL_RECEIPT_FONT);
+                addCell(table, formatCurrency(metalAmt), NORMAL_RECEIPT_FONT);
+                addCell(table, "Diamond", NORMAL_RECEIPT_FONT);
+                addCell(table, "—", NORMAL_RECEIPT_FONT);
+                addCell(table, "—", NORMAL_RECEIPT_FONT);
+                addCell(table, diamondCt != null ? diamondCt.multiply(BigDecimal.valueOf(qty)).setScale(3, RoundingMode.HALF_UP).toString() : "—", NORMAL_RECEIPT_FONT);
+                addCell(table, String.valueOf(qty), NORMAL_RECEIPT_FONT);
+                addCell(table, "—", NORMAL_RECEIPT_FONT);
+                addCell(table, "—", NORMAL_RECEIPT_FONT);
+                addCell(table, formatCurrency(diamondAmt), NORMAL_RECEIPT_FONT);
             } else {
                 BigDecimal rate = (wt != null && wt.compareTo(BigDecimal.ZERO) > 0 && unitPrice != null) ? unitPrice.divide(wt, 2, RoundingMode.HALF_UP) : null;
-                addCell(table, itemName, NORMAL_FONT);
-                addCell(table, articleCode != null ? articleCode : "—", NORMAL_FONT);
-                addCell(table, carat != null ? carat.toString() : "—", NORMAL_FONT);
-                addCell(table, diamondCt != null ? diamondCt.toString() : "—", NORMAL_FONT);
-                addCell(table, String.valueOf(qty), NORMAL_FONT);
-                addCell(table, rate != null ? formatCurrency(rate) : "—", NORMAL_FONT);
-                addCell(table, formatCurrency(item.getTotalPrice()), NORMAL_FONT);
+                addCell(table, itemName, NORMAL_RECEIPT_FONT);
+                addCell(table, articleCode != null ? articleCode : "—", NORMAL_RECEIPT_FONT);
+                addCell(table, carat != null ? carat.toString() : "—", NORMAL_RECEIPT_FONT);
+                addCell(table, diamondCt != null ? diamondCt.toString() : "—", NORMAL_RECEIPT_FONT);
+                addCell(table, String.valueOf(qty), NORMAL_RECEIPT_FONT);
+                addCell(table, rate != null ? formatCurrency(rate) : "—", NORMAL_RECEIPT_FONT);
+                addCell(table, formatCurrency(item.getTotalPrice()), NORMAL_RECEIPT_FONT);
             }
         }
         document.add(table);
@@ -130,20 +157,20 @@ public class BillPdfService {
         BigDecimal totalDiamond = billing.getTotalDiamondAmount() != null ? billing.getTotalDiamondAmount() : BigDecimal.ZERO;
         if (totalDiamond.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal totalAmt = billing.getTotalAmount() != null ? billing.getTotalAmount() : BigDecimal.ZERO;
-            document.add(new Paragraph("Gold: " + formatCurrency(totalAmt.subtract(totalDiamond)), NORMAL_FONT));
-            document.add(new Paragraph("Diamond: " + formatCurrency(totalDiamond), NORMAL_FONT));
-            document.add(new Paragraph("Total (Gold + Diamond): " + formatCurrency(totalAmt), NORMAL_FONT));
+            document.add(new Paragraph("Gold: " + formatCurrency(totalAmt.subtract(totalDiamond)), NORMAL_RECEIPT_FONT));
+            document.add(new Paragraph("Diamond: " + formatCurrency(totalDiamond), NORMAL_RECEIPT_FONT));
+            document.add(new Paragraph("Total (Gold + Diamond): " + formatCurrency(totalAmt), NORMAL_RECEIPT_FONT));
         } else {
-            document.add(new Paragraph("Subtotal: " + formatCurrency(billing.getTotalAmount()), NORMAL_FONT));
+            document.add(new Paragraph("Subtotal: " + formatCurrency(billing.getTotalAmount()), NORMAL_RECEIPT_FONT));
         }
-        document.add(new Paragraph("Discount: -" + formatCurrency(billing.getDiscountAmount() != null ? billing.getDiscountAmount() : BigDecimal.ZERO), NORMAL_FONT));
-        document.add(new Paragraph("Making Charges: " + formatCurrency(billing.getMakingCharges() != null ? billing.getMakingCharges() : BigDecimal.ZERO), NORMAL_FONT));
-        document.add(new Paragraph("Total: " + formatCurrency(billing.getFinalAmount()), HEADER_FONT));
+        document.add(new Paragraph("Discount: -" + formatCurrency(billing.getDiscountAmount() != null ? billing.getDiscountAmount() : BigDecimal.ZERO), NORMAL_RECEIPT_FONT));
+        document.add(new Paragraph("Making Charges: " + formatCurrency(billing.getMakingCharges() != null ? billing.getMakingCharges() : BigDecimal.ZERO), NORMAL_RECEIPT_FONT));
+        document.add(new Paragraph("Total: " + formatCurrency(billing.getFinalAmount()), NORMAL_RECEIPT_HEADER_FONT));
         if (billing.getPaidAmount() != null && billing.getPaidAmount().compareTo(BigDecimal.ZERO) > 0) {
-            document.add(new Paragraph("Paid: " + formatCurrency(billing.getPaidAmount()), NORMAL_FONT));
+            document.add(new Paragraph("Paid: " + formatCurrency(billing.getPaidAmount()), NORMAL_RECEIPT_FONT));
         }
         document.add(new Paragraph(" "));
-        document.add(new Paragraph("Thank you for your purchase!", NORMAL_FONT));
+        document.add(new Paragraph("Thank you for your purchase!", NORMAL_RECEIPT_FONT));
     }
 
     private void buildGstPdf(Document document, Billing billing) throws DocumentException {
@@ -162,10 +189,10 @@ public class BillPdfService {
         document.add(new Paragraph(" "));
 
         PdfPTable table = new PdfPTable(12);
-        table.setWidthPercentage(100f);
+        table.setWidthPercentage(98f);
         table.setWidths(new float[]{1f, 1f, 2f, 0.6f, 0.8f, 0.5f, 0.8f, 0.8f, 1f, 0.6f, 0.8f, 1f});
         String[] headers = {"Prod ID", "Design", "Desc", "Carat", "Dia Ct", "Qty", "GSWT(g)", "NT(g)", "Rate", "MKG", "DIA Val", "Amount"};
-        for (String h : headers) addCell(table, h, HEADER_FONT);
+        for (String h : headers) addCell(table, h, GST_TABLE_FONT);
 
         BigDecimal totalGrossWeight = BigDecimal.ZERO;
         for (BillingItem item : billing.getItems()) {
@@ -186,44 +213,44 @@ public class BillPdfService {
             BigDecimal unitPrice = item.getUnitPrice();
 
             if (diamondAmt.compareTo(BigDecimal.ZERO) > 0) {
-                addCell(table, articleCode != null ? articleCode : "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, itemName + " (Gold)", NORMAL_FONT);
-                addCell(table, carat != null ? carat.toString() : "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, String.valueOf(qty), NORMAL_FONT);
-                addCell(table, gswt.setScale(3, RoundingMode.HALF_UP).toString(), NORMAL_FONT);
-                addCell(table, gswt.setScale(3, RoundingMode.HALF_UP).toString(), NORMAL_FONT);
-                addCell(table, ratePerGramGold != null ? formatCurrency(ratePerGramGold) : "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, formatCurrency(metalAmt), NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, "Diamond", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, diamondCt != null ? diamondCt.multiply(BigDecimal.valueOf(qty)).setScale(3, RoundingMode.HALF_UP).toString() : "—", NORMAL_FONT);
-                addCell(table, String.valueOf(qty), NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, formatCurrency(diamondAmt), NORMAL_FONT);
+                addCell(table, articleCode != null ? articleCode : "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, itemName + " (Gold)", GST_TABLE_FONT);
+                addCell(table, carat != null ? carat.toString() : "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, String.valueOf(qty), GST_TABLE_FONT);
+                addCell(table, gswt.setScale(3, RoundingMode.HALF_UP).toString(), GST_TABLE_FONT);
+                addCell(table, gswt.setScale(3, RoundingMode.HALF_UP).toString(), GST_TABLE_FONT);
+                addCell(table, ratePerGramGold != null ? formatCurrency(ratePerGramGold) : "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, formatCurrency(metalAmt), GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, "Diamond", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, diamondCt != null ? diamondCt.multiply(BigDecimal.valueOf(qty)).setScale(3, RoundingMode.HALF_UP).toString() : "—", GST_TABLE_FONT);
+                addCell(table, String.valueOf(qty), GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, formatCurrency(diamondAmt), GST_TABLE_FONT);
             } else {
                 BigDecimal ratePerGram = wt.compareTo(BigDecimal.ZERO) > 0 && unitPrice != null ? unitPrice.divide(wt, 2, RoundingMode.HALF_UP) : null;
-                addCell(table, articleCode != null ? articleCode : "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, itemName, NORMAL_FONT);
-                addCell(table, carat != null ? carat.toString() : "—", NORMAL_FONT);
-                addCell(table, diamondCt != null ? diamondCt.toString() : "—", NORMAL_FONT);
-                addCell(table, String.valueOf(qty), NORMAL_FONT);
-                addCell(table, gswt.setScale(3, RoundingMode.HALF_UP).toString(), NORMAL_FONT);
-                addCell(table, gswt.setScale(3, RoundingMode.HALF_UP).toString(), NORMAL_FONT);
-                addCell(table, ratePerGram != null ? formatCurrency(ratePerGram) : (unitPrice != null ? formatCurrency(unitPrice) : "—"), NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, "—", NORMAL_FONT);
-                addCell(table, formatCurrency(item.getTotalPrice()), NORMAL_FONT);
+                addCell(table, articleCode != null ? articleCode : "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, itemName, GST_TABLE_FONT);
+                addCell(table, carat != null ? carat.toString() : "—", GST_TABLE_FONT);
+                addCell(table, diamondCt != null ? diamondCt.toString() : "—", GST_TABLE_FONT);
+                addCell(table, String.valueOf(qty), GST_TABLE_FONT);
+                addCell(table, gswt.setScale(3, RoundingMode.HALF_UP).toString(), GST_TABLE_FONT);
+                addCell(table, gswt.setScale(3, RoundingMode.HALF_UP).toString(), GST_TABLE_FONT);
+                addCell(table, ratePerGram != null ? formatCurrency(ratePerGram) : (unitPrice != null ? formatCurrency(unitPrice) : "—"), GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, "—", GST_TABLE_FONT);
+                addCell(table, formatCurrency(item.getTotalPrice()), GST_TABLE_FONT);
             }
         }
         document.add(table);
