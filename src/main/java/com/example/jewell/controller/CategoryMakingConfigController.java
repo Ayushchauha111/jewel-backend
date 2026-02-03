@@ -17,8 +17,8 @@ public class CategoryMakingConfigController {
     @Autowired
     private CategoryMakingConfigService service;
 
+    /** GET: public so checkout can resolve making by category+material. */
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<CategoryMakingConfig>> getAll() {
         return ResponseEntity.ok(service.findAll());
     }

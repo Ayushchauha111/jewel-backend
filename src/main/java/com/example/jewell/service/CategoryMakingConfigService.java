@@ -17,27 +17,41 @@ public class CategoryMakingConfigService {
     private CategoryMakingConfigRepository repository;
 
     public List<CategoryMakingConfig> findAll() {
-        return repository.findAllByOrderByCategoryAsc();
-    }
-
-    public Optional<CategoryMakingConfig> findByCategory(String category) {
-        if (category == null || category.isBlank()) return Optional.empty();
-        return repository.findByCategoryIgnoreCase(category.trim());
+        return repository.findAllByOrderByCategoryAscMaterialAsc();
     }
 
     /**
-     * Returns making charges per gram for the given category, or empty if not configured.
+     * Returns making charges per gram for the given category and material.
+     * Lookup order: category+material, then category only (material null).
      */
-    public Optional<BigDecimal> getMakingChargesPerGramForCategory(String category) {
-        return findByCategory(category)
+    public Optional<BigDecimal> getMakingChargesPerGramForCategoryAndMaterial(String category, String material) {
+        if (category == null || category.isBlank()) return Optional.empty();
+        String cat = category.trim();
+        if (material != null && !material.isBlank()) {
+            Optional<BigDecimal> byMaterial = repository.findByCategoryIgnoreCaseAndMaterialIgnoreCase(cat, material.trim())
+                    .map(CategoryMakingConfig::getMakingChargesPerGram)
+                    .filter(mc -> mc != null && mc.compareTo(BigDecimal.ZERO) >= 0);
+            if (byMaterial.isPresent()) return byMaterial;
+        }
+        return repository.findByCategoryIgnoreCaseAndMaterialIsNull(cat)
                 .map(CategoryMakingConfig::getMakingChargesPerGram)
                 .filter(mc -> mc != null && mc.compareTo(BigDecimal.ZERO) >= 0);
+    }
+
+    /** Backward compatibility: category only (no material). */
+    public Optional<BigDecimal> getMakingChargesPerGramForCategory(String category) {
+        return getMakingChargesPerGramForCategoryAndMaterial(category, null);
     }
 
     @Transactional
     public CategoryMakingConfig save(CategoryMakingConfig config) {
         if (config.getCategory() != null) {
             config.setCategory(config.getCategory().trim());
+        }
+        if (config.getMaterial() != null && config.getMaterial().isBlank()) {
+            config.setMaterial(null);
+        } else if (config.getMaterial() != null) {
+            config.setMaterial(config.getMaterial().trim());
         }
         return repository.save(config);
     }

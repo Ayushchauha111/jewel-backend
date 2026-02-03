@@ -43,6 +43,9 @@ public class DailyRate {
 
     @Column(name = "silver_per_gram", precision = 10, scale = 2)
     private BigDecimal silverPerGram;
+    /** Silver purity/accuracy e.g. 92.5 for 92.5%, or 999 for 999 fineness. */
+    @Column(name = "silver_purity_percentage", precision = 5, scale = 2)
+    private BigDecimal silverPurityPercentage;
 
     @Column(name = "diamond_per_carat", precision = 12, scale = 2)
     private BigDecimal diamondPerCarat;
@@ -83,6 +86,8 @@ public class DailyRate {
     public void setGold24K(BigDecimal gold24K) { this.gold24K = gold24K; }
     public BigDecimal getSilverPerGram() { return silverPerGram; }
     public void setSilverPerGram(BigDecimal silverPerGram) { this.silverPerGram = silverPerGram; }
+    public BigDecimal getSilverPurityPercentage() { return silverPurityPercentage; }
+    public void setSilverPurityPercentage(BigDecimal silverPurityPercentage) { this.silverPurityPercentage = silverPurityPercentage; }
     public BigDecimal getDiamondPerCarat() { return diamondPerCarat; }
     public void setDiamondPerCarat(BigDecimal diamondPerCarat) { this.diamondPerCarat = diamondPerCarat; }
     public BigDecimal getMakingChargesPerGram() { return makingChargesPerGram; }

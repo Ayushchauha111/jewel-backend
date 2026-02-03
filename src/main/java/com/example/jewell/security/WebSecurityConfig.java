@@ -79,6 +79,7 @@ public class WebSecurityConfig {
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/gold-price/**").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/silver-price/**").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rates/**").permitAll()
+                                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/config/category-making").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/live-rates/**").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/orders").permitAll()
                                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/orders/**").permitAll()

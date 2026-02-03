@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CategoryMakingConfigRepository extends JpaRepository<CategoryMakingConfig, Long> {
-    Optional<CategoryMakingConfig> findByCategoryIgnoreCase(String category);
-    List<CategoryMakingConfig> findAllByOrderByCategoryAsc();
+    Optional<CategoryMakingConfig> findByCategoryIgnoreCaseAndMaterialIgnoreCase(String category, String material);
+    Optional<CategoryMakingConfig> findByCategoryIgnoreCaseAndMaterialIsNull(String category);
+    List<CategoryMakingConfig> findAllByOrderByCategoryAscMaterialAsc();
 }

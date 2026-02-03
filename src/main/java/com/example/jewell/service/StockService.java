@@ -177,6 +177,10 @@ public class StockService {
     }
 
     public Optional<Map<String, Object>> calculatePriceWithMakingAndGst(BigDecimal weightGrams, BigDecimal carat, BigDecimal articleMakingChargesPerGram, String category) {
+        return calculatePriceWithMakingAndGst(weightGrams, carat, articleMakingChargesPerGram, category, "Gold");
+    }
+
+    public Optional<Map<String, Object>> calculatePriceWithMakingAndGst(BigDecimal weightGrams, BigDecimal carat, BigDecimal articleMakingChargesPerGram, String category, String material) {
         if (weightGrams == null || weightGrams.compareTo(BigDecimal.ZERO) <= 0
                 || carat == null || carat.compareTo(BigDecimal.ZERO) <= 0) {
             return Optional.empty();
@@ -185,12 +189,12 @@ public class StockService {
                 .or(() -> goldPriceService.getPricePerGramForCarat(carat));
         if (ratePerGram.isEmpty()) return Optional.empty();
 
-        // Making per gram: item override > category config > daily rate > shop default
+        // Making per gram: item override > category+material config > category-only config > daily rate > shop default
         BigDecimal mcPerGram = null;
         if (articleMakingChargesPerGram != null && articleMakingChargesPerGram.compareTo(BigDecimal.ZERO) > 0) {
             mcPerGram = articleMakingChargesPerGram;
         } else if (category != null && !category.isBlank()) {
-            mcPerGram = categoryMakingConfigService.getMakingChargesPerGramForCategory(category.trim()).orElse(null);
+            mcPerGram = categoryMakingConfigService.getMakingChargesPerGramForCategoryAndMaterial(category.trim(), material).orElse(null);
         }
         if (mcPerGram == null) {
             mcPerGram = dailyRateService.getTodayOrLatest()
@@ -215,6 +219,54 @@ public class StockService {
         out.put("gstTotal", gstTotal);
         out.put("totalPrice", totalPrice);
         out.put("goldRatePerGram", ratePerGram.get());
+        return Optional.of(out);
+    }
+
+    /**
+     * Silver price breakdown: silver value + making charges (per gram) + CGST 1.5% + SGST 1.5% (3% total).
+     * Used for silver stock items in billing. Making resolution: item override > category config > daily rate > shop default.
+     */
+    public Optional<Map<String, Object>> calculateSilverPriceWithMakingAndGst(BigDecimal weightGrams, BigDecimal articleMakingChargesPerGram, String category) {
+        return calculateSilverPriceWithMakingAndGst(weightGrams, articleMakingChargesPerGram, category, "Silver");
+    }
+
+    public Optional<Map<String, Object>> calculateSilverPriceWithMakingAndGst(BigDecimal weightGrams, BigDecimal articleMakingChargesPerGram, String category, String material) {
+        if (weightGrams == null || weightGrams.compareTo(BigDecimal.ZERO) <= 0) {
+            return Optional.empty();
+        }
+        Optional<BigDecimal> ratePerGram = dailyRateService.getSilverPerGram();
+        if (ratePerGram.isEmpty()) return Optional.empty();
+
+        // Making per gram: item override > category+material config > category-only config > daily rate > shop default
+        BigDecimal mcPerGram = null;
+        if (articleMakingChargesPerGram != null && articleMakingChargesPerGram.compareTo(BigDecimal.ZERO) > 0) {
+            mcPerGram = articleMakingChargesPerGram;
+        } else if (category != null && !category.isBlank()) {
+            mcPerGram = categoryMakingConfigService.getMakingChargesPerGramForCategoryAndMaterial(category.trim(), material != null ? material : "Silver").orElse(null);
+        }
+        if (mcPerGram == null) {
+            mcPerGram = dailyRateService.getTodayOrLatest()
+                    .map(com.example.jewell.model.DailyRate::getMakingChargesPerGram)
+                    .filter(mc -> mc != null && mc.compareTo(BigDecimal.ZERO) > 0)
+                    .orElse(makingChargesPerGram);
+        }
+        BigDecimal silverValue = weightGrams.multiply(ratePerGram.get()).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal makingCharges = weightGrams.multiply(mcPerGram).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal subtotal = silverValue.add(makingCharges);
+        BigDecimal gstTotal = subtotal.multiply(GST_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal cgst = subtotal.multiply(CGST_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal sgst = subtotal.multiply(SGST_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalPrice = subtotal.add(gstTotal);
+
+        Map<String, Object> out = new java.util.HashMap<>();
+        out.put("silverValue", silverValue);
+        out.put("makingCharges", makingCharges);
+        out.put("subtotal", subtotal);
+        out.put("cgst", cgst);
+        out.put("sgst", sgst);
+        out.put("gstTotal", gstTotal);
+        out.put("totalPrice", totalPrice);
+        out.put("silverRatePerGram", ratePerGram.get());
         return Optional.of(out);
     }
 

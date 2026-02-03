@@ -65,6 +65,29 @@ public class StockController {
     }
 
     /**
+     * Public price estimate for catalog: silver value + making + GST. No auth required.
+     * GET /api/stock/estimate-price-silver?weightGrams=120&category=Kamarband
+     */
+    @GetMapping("/estimate-price-silver")
+    public ResponseEntity<Map<String, Object>> estimatePriceSilver(
+            @RequestParam BigDecimal weightGrams,
+            @RequestParam(required = false) BigDecimal makingChargesPerGram,
+            @RequestParam(required = false) String category) {
+        Map<String, Object> result = new HashMap<>();
+        Optional<Map<String, Object>> breakdown = stockService.calculateSilverPriceWithMakingAndGst(weightGrams, makingChargesPerGram, category);
+        if (breakdown.isEmpty()) {
+            result.put("error", "Silver rate not set. Price as per current silver rate.");
+            return ResponseEntity.ok(result);
+        }
+        Map<String, Object> b = breakdown.get();
+        result.put("totalPrice", b.get("totalPrice"));
+        result.put("silverValue", b.get("silverValue"));
+        result.put("makingCharges", b.get("makingCharges"));
+        result.put("gstTotal", b.get("gstTotal"));
+        return ResponseEntity.ok(result);
+    }
+
+    /**
      * Calculate article selling price: gold value + making charges (per gram) + CGST 1.5% + SGST 1.5%.
      * GET /api/stock/calculate-price?weightGrams=10&carat=22
      */
@@ -87,6 +110,29 @@ public class StockController {
         dailyRateService.getTodayOrLatest().ifPresent(r -> result.put("rateDate", r.getPriceDate().toString()));
         if (result.get("rateDate") == null)
             goldPriceService.getTodayOrLatestGoldPrice().ifPresent(gp -> result.put("rateDate", gp.getPriceDate().toString()));
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Calculate silver article price: silver value + making + GST.
+     * GET /api/stock/calculate-price-silver?weightGrams=120&category=Kamarband
+     */
+    @GetMapping("/calculate-price-silver")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> calculatePriceSilver(
+            @RequestParam BigDecimal weightGrams,
+            @RequestParam(required = false) BigDecimal makingChargesPerGram,
+            @RequestParam(required = false) String category) {
+        Map<String, Object> result = new HashMap<>();
+        Optional<Map<String, Object>> breakdown = stockService.calculateSilverPriceWithMakingAndGst(weightGrams, makingChargesPerGram, category);
+        if (breakdown.isEmpty()) {
+            result.put("error", "Silver rate not set or invalid weight. Set today's silver rate (Rates page) first.");
+            return ResponseEntity.badRequest().body(result);
+        }
+        Map<String, Object> b = breakdown.get();
+        result.putAll(b);
+        result.put("calculatedPrice", b.get("totalPrice"));
+        dailyRateService.getTodayOrLatest().ifPresent(r -> result.put("rateDate", r.getPriceDate().toString()));
         return ResponseEntity.ok(result);
     }
 
