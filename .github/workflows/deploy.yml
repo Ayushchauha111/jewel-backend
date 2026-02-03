@@ -28,51 +28,48 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # 1. Clean existing directory
+            # 1. Clean and Setup for ubuntu user
             rm -rf /home/ubuntu/.oci
             mkdir -p /home/ubuntu/.oci
             
-            # 2. Write Private Key (cat <<EOF handles newlines and special characters)
-            cat <<EOF > /home/ubuntu/.oci/oci_api_key.pem
+            # 2. Write Private Key using a quoted heredoc to prevent mangling
+            cat <<'EOF' > /home/ubuntu/.oci/oci_api_key.pem
             ${{ secrets.OCI_PRIVATE_KEY }}
             EOF
             
-            # 3. Create Config File
+            # 3. Create Config File for ubuntu
             cat <<EOF > /home/ubuntu/.oci/config
             [DEFAULT]
             user=${{ secrets.OCI_USER_ID }}
             fingerprint=${{ secrets.OCI_FINGERPRINT }}
             tenancy=${{ secrets.OCI_TENANCY }}
             region=${{ secrets.OCI_REGION }}
-            key_file=/root/.oci/oci_api_key.pem
+            key_file=/home/ubuntu/.oci/oci_api_key.pem
             EOF
             
-            # 4. Sync to root (because the JVM insists on looking here in systemd)
+            # 4. Sync to root for the Systemd Service
             sudo mkdir -p /root/.oci
             sudo cp /home/ubuntu/.oci/oci_api_key.pem /root/.oci/oci_api_key.pem
             sudo cp /home/ubuntu/.oci/config /root/.oci/config
             
-            # 5. Set strict permissions (OCI SDK requires 600)
+            # 5. Fix the path inside the ROOT config to point to /root
+            sudo sed -i 's|/home/ubuntu/|/root/|g' /root/.oci/config
+            
+            # 6. Set strict permissions (OCI SDK requirement)
             sudo chmod 700 /root/.oci
             sudo chmod 600 /root/.oci/config /root/.oci/oci_api_key.pem
             sudo chown -R ubuntu:ubuntu /home/ubuntu/.oci
             chmod 600 /home/ubuntu/.oci/config /home/ubuntu/.oci/oci_api_key.pem
 
-      - name: Verify OCI Files on Remote Server
+      - name: Verify OCI Authentication
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "Listing .oci directory:"
-            ls -la ~/.oci
-
-            echo "Contents of ~/.oci/config:"
-            cat ~/.oci/config
-
-            echo "Contents of ~/.oci/oci_api_key.pem:"
-            cat ~/.oci/oci_api_key.pem
+            echo "--- Testing OCI CLI Authentication ---"
+            /home/ubuntu/bin/oci os ns get --config-file /home/ubuntu/.oci/config
 
       - name: Deploy JAR to Oracle Cloud
         uses: appleboy/scp-action@v0.1.4
@@ -81,7 +78,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "target/*.jar"
-          target: "/home/ubuntu"
+          target: "/home/ubuntu/target"
 
       - name: Restart Spring Boot Service
         uses: appleboy/ssh-action@v0.1.10
@@ -90,5 +87,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            sudo systemctl stop myapp
-            sudo systemctl start myapp
+            # Kill previous process to avoid "Port 8000 in use"
+            sudo fuser -k 8000/tcp || true
+            sudo systemctl daemon-reload
+            sudo systemctl restart myapp
