@@ -48,4 +48,3 @@ public class SecurityHeadersConfig implements Filter {
         chain.doFilter(request, response);
     } 
 }
-
