@@ -53,6 +53,10 @@ public class BillingItem {
     @Column(name = "total_price", precision = 12, scale = 2)
     private BigDecimal totalPrice;
 
+    /** If true, hallmark charges (e.g. ₹100/item) apply for this line on GST invoice. */
+    @Column(name = "hallmark")
+    private Boolean hallmark = false;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -155,6 +159,14 @@ public class BillingItem {
 
     public void setTotalPrice(BigDecimal totalPrice) {
         this.totalPrice = totalPrice;
+    }
+
+    public Boolean getHallmark() {
+        return hallmark;
+    }
+
+    public void setHallmark(Boolean hallmark) {
+        this.hallmark = hallmark;
     }
 
     public LocalDateTime getCreatedAt() {
