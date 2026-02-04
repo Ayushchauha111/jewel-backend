@@ -1,6 +1,7 @@
 package com.example.jewell.service;
 
 import com.example.jewell.model.Customer;
+import com.example.jewell.repository.BillingRepository;
 import com.example.jewell.repository.CustomerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -17,6 +18,9 @@ import java.util.Optional;
 public class CustomerService {
     @Autowired
     private CustomerRepository customerRepository;
+
+    @Autowired
+    private BillingRepository billingRepository;
 
     public List<Customer> getAllCustomers() {
         return customerRepository.findAll();
@@ -85,6 +89,12 @@ public class CustomerService {
     }
 
     public void deleteCustomer(Long id) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Customer not found with id: " + id));
+        long billCount = billingRepository.countByCustomerId(id);
+        if (billCount > 0) {
+            throw new IllegalStateException("Cannot delete customer: they have " + billCount + " existing bill(s). Remove or reassign bills first.");
+        }
         customerRepository.deleteById(id);
     }
 }

@@ -18,6 +18,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.example.jewell.security.services.UserDetailsServiceImpl;
+import com.example.jewell.service.AdminSessionService;
 
 public class AuthTokenFilter extends OncePerRequestFilter {
     @Autowired
@@ -25,6 +26,9 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
+
+    @Autowired
+    private AdminSessionService adminSessionService;
 
     private static final Logger logger = LoggerFactory.getLogger(AuthTokenFilter.class);
 
@@ -38,28 +42,40 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                     // Only try to authenticate if token is valid
                     if (jwtUtils.validateJwtToken(jwt)) {
                         String username = jwtUtils.getUserNameFromJwtToken(jwt);
-                        
-                        // Check if token version matches user's current token version
-                        Long tokenVersion = jwtUtils.getTokenVersionFromJwtToken(jwt);
-                        if (tokenVersion != null) {
-                            // Load user to check current token version
+                        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                        Long userId = ((com.example.jewell.security.services.UserDetailsImpl) userDetails).getId();
+                        boolean isAdmin = userDetails.getAuthorities().stream()
+                                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()) || "ROLE_SUPER_ADMIN".equals(a.getAuthority()));
+
+                        Long sessionId = jwtUtils.getSessionIdFromJwtToken(jwt);
+                        if (isAdmin && sessionId != null) {
+                            // Admin with session: validate session still exists (device limit / eviction)
+                            if (!adminSessionService.isSessionValid(sessionId, userId)) {
+                                logger.debug("Admin session {} invalid or evicted for user {}", sessionId, username);
+                                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                                response.setContentType("application/json");
+                                response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Session expired or maximum devices reached. Please login again.\",\"status\":401}");
+                                return;
+                            }
+                            adminSessionService.refreshLastUsedAt(sessionId, userId);
+                        } else if (!isAdmin) {
+                            // Non-admin: check token version (single device)
                             com.example.jewell.model.User user = userDetailsService.getUserByUsername(username);
                             if (user != null) {
-                                Long currentTokenVersion = user.getTokenVersion() != null ? user.getTokenVersion() : 0L;
-                                if (!tokenVersion.equals(currentTokenVersion)) {
-                                    // Token version mismatch - user logged in from another device
-                                    logger.debug("Token version mismatch for user {}: token version {} != current version {}", 
-                                        username, tokenVersion, currentTokenVersion);
-                                    // Return 401 Unauthorized for token version mismatch
-                                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                                    response.setContentType("application/json");
-                                    response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Session expired. Please login again.\",\"status\":401}");
-                                    return;
+                                Long tokenVersion = jwtUtils.getTokenVersionFromJwtToken(jwt);
+                                if (tokenVersion != null) {
+                                    Long currentTokenVersion = user.getTokenVersion() != null ? user.getTokenVersion() : 0L;
+                                    if (!tokenVersion.equals(currentTokenVersion)) {
+                                        logger.debug("Token version mismatch for user {}: token version {} != current version {}",
+                                            username, tokenVersion, currentTokenVersion);
+                                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                                        response.setContentType("application/json");
+                                        response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Session expired. Please login again.\",\"status\":401}");
+                                        return;
+                                    }
                                 }
                             }
                         }
-
-                        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                                 userDetails,
                                 null,

@@ -27,16 +27,20 @@ public class JwtUtils {
     private int jwtExpirationMs;
 
     public String generateJwtToken(Authentication authentication, Long tokenVersion) {
+        return generateJwtToken(authentication, tokenVersion, null);
+    }
 
+    public String generateJwtToken(Authentication authentication, Long tokenVersion, Long sessionId) {
         UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
-
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .setSubject((userPrincipal.getUsername()))
-                .claim("tokenVersion", tokenVersion) // Include token version in claims
+                .claim("tokenVersion", tokenVersion)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(key(), SignatureAlgorithm.HS256)
-                .compact();
+                .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs));
+        if (sessionId != null) {
+            builder = builder.claim("sid", sessionId);
+        }
+        return builder.signWith(key(), SignatureAlgorithm.HS256).compact();
     }
     
     /**
@@ -63,6 +67,23 @@ public class JwtUtils {
             return ((Number) tokenVersionObj).longValue();
         }
         return null;
+    }
+
+    /**
+     * Get admin session id from JWT token (for admin multi-device support)
+     */
+    public Long getSessionIdFromJwtToken(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder().setSigningKey(key()).build()
+                    .parseClaimsJws(token).getBody();
+            Object sidObj = claims.get("sid");
+            if (sidObj instanceof Number) {
+                return ((Number) sidObj).longValue();
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Key key() {

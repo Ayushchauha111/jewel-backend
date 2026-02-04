@@ -17,6 +17,7 @@ import java.util.Optional;
 public interface BillingRepository extends JpaRepository<Billing, Long> {
     Optional<Billing> findByBillNumber(String billNumber);
     List<Billing> findByCustomerId(Long customerId);
+    long countByCustomerId(Long customerId);
     List<Billing> findByCreatedAtBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
     
     // Search methods

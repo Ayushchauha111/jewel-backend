@@ -16,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import com.example.jewell.model.ERole;
 import com.example.jewell.model.Role;
 import com.example.jewell.model.User;
@@ -28,6 +30,7 @@ import com.example.jewell.repository.RoleRepository;
 import com.example.jewell.repository.UserRepository;
 import com.example.jewell.security.jwt.JwtUtils;
 import com.example.jewell.security.services.UserDetailsImpl;
+import com.example.jewell.service.AdminSessionService;
 import com.example.jewell.service.GoogleAuthService;
 import com.example.jewell.service.GoogleAuthService.GoogleUserInfo;
 import com.example.jewell.service.DisposableEmailService;
@@ -58,8 +61,12 @@ public class AuthController {
   @Autowired
   DisposableEmailService disposableEmailService;
 
+  @Autowired
+  AdminSessionService adminSessionService;
+
   @PostMapping("/signin")
-  public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+  public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest,
+      HttpServletRequest request) {
 
     Authentication authentication = authenticationManager.authenticate(
         new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
@@ -67,20 +74,28 @@ public class AuthController {
     SecurityContextHolder.getContext().setAuthentication(authentication);
     
     UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-    
-    // Get user and increment token version to invalidate previous sessions
     User user = userRepository.findById(userDetails.getId())
         .orElseThrow(() -> new RuntimeException("User not found"));
-    Long newTokenVersion = (user.getTokenVersion() != null ? user.getTokenVersion() : 0L) + 1;
-    user.setTokenVersion(newTokenVersion);
-    userRepository.save(user);
-    
-    // Generate JWT with new token version
-    String jwt = jwtUtils.generateJwtToken(authentication, newTokenVersion);
 
     List<String> roles = userDetails.getAuthorities().stream()
         .map(item -> item.getAuthority())
         .collect(Collectors.toList());
+
+    boolean isAdmin = roles.contains("ROLE_ADMIN");
+    String jwt;
+
+    if (isAdmin) {
+      // Admin: allow up to 4 devices; track sessions, do not invalidate other devices
+      Long currentTokenVersion = user.getTokenVersion() != null ? user.getTokenVersion() : 0L;
+      Long sessionId = adminSessionService.createOrRefreshSession(user.getId(), request);
+      jwt = jwtUtils.generateJwtToken(authentication, currentTokenVersion, sessionId);
+    } else {
+      // Non-admin: single device - increment token version on each login
+      Long newTokenVersion = (user.getTokenVersion() != null ? user.getTokenVersion() : 0L) + 1;
+      user.setTokenVersion(newTokenVersion);
+      userRepository.save(user);
+      jwt = jwtUtils.generateJwtToken(authentication, newTokenVersion);
+    }
 
     return ResponseEntity.ok(new JwtResponse(jwt,
         userDetails.getId(),
@@ -230,6 +245,74 @@ public class AuthController {
         userDetails.getEmail(),
         userDetails.getProfileImageUrl(),
         roles));
+  }
+
+  /**
+   * Logout: remove current admin session (frees device slot for multi-device limit).
+   * Call with Bearer token; the session for this token is deleted.
+   */
+  @PostMapping("/logout")
+  public ResponseEntity<?> logout(Authentication authentication, HttpServletRequest request) {
+    if (authentication == null || !authentication.isAuthenticated()) {
+      return ResponseEntity.ok(new MessageResponse("Logged out"));
+    }
+    UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+    String authHeader = request.getHeader("Authorization");
+    if (authHeader != null && authHeader.startsWith("Bearer ")) {
+      String jwt = authHeader.substring(7);
+      Long sessionId = jwtUtils.getSessionIdFromJwtToken(jwt);
+      if (sessionId != null) {
+        adminSessionService.deleteSession(sessionId, userDetails.getId());
+      }
+    }
+    return ResponseEntity.ok(new MessageResponse("Logged out"));
+  }
+
+  /**
+   * Get active sessions for current admin (multi-device limit).
+   * Returns { "activeSessions": number, "sessions": [ { id, createdAt, lastUsedAt } ], "currentSessionId": id or null }.
+   * Non-admin users get activeSessions: 0, sessions: [].
+   */
+  @GetMapping("/sessions")
+  public ResponseEntity<?> getActiveSessions(Authentication authentication, HttpServletRequest request) {
+    if (authentication == null || !authentication.isAuthenticated()) {
+      return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+    }
+    UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+    List<String> roles = userDetails.getAuthorities().stream()
+        .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+        .collect(Collectors.toList());
+    boolean isAdmin = roles.contains("ROLE_ADMIN") || roles.contains("ROLE_SUPER_ADMIN");
+    Long currentSessionId = null;
+    String authHeader = request.getHeader("Authorization");
+    if (authHeader != null && authHeader.startsWith("Bearer ")) {
+      currentSessionId = jwtUtils.getSessionIdFromJwtToken(authHeader.substring(7));
+    }
+    long count = 0L;
+    java.util.List<com.example.jewell.service.AdminSessionService.AdminSessionDto> sessions = java.util.Collections.emptyList();
+    if (isAdmin) {
+      count = adminSessionService.getActiveSessionCount(userDetails.getId());
+      sessions = adminSessionService.getSessionsForUser(userDetails.getId());
+    }
+    java.util.Map<String, Object> body = new java.util.HashMap<>();
+    body.put("activeSessions", count);
+    body.put("sessions", sessions);
+    body.put("currentSessionId", currentSessionId);
+    return ResponseEntity.ok(body);
+  }
+
+  /**
+   * Remove a session (log out that device). Only the session owner can remove it.
+   * If you remove the current session, your token will be invalid; frontend should then redirect to login.
+   */
+  @DeleteMapping("/sessions/{sessionId}")
+  public ResponseEntity<Void> removeSession(@PathVariable Long sessionId, Authentication authentication) {
+    if (authentication == null || !authentication.isAuthenticated()) {
+      return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+    }
+    UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+    adminSessionService.deleteSession(sessionId, userDetails.getId());
+    return ResponseEntity.noContent().build();
   }
 
   /**

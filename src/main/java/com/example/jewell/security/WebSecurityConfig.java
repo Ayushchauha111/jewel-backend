@@ -68,7 +68,7 @@ public class WebSecurityConfig {
                                 // Static resources (uploaded images)
                                 .requestMatchers("/uploads/**").permitAll()
                                 // Specific auth endpoints that require authentication (roles checked by @PreAuthorize)
-                                .requestMatchers("/api/auth/user", "/api/auth/mod", "/api/auth/admin", "/api/auth/validate").authenticated()
+                                .requestMatchers("/api/auth/user", "/api/auth/mod", "/api/auth/admin", "/api/auth/validate", "/api/auth/sessions", "/api/auth/sessions/**", "/api/auth/logout").authenticated()
                                 // Public auth endpoints
                                 .requestMatchers("/api/auth/**").permitAll()
                                 .requestMatchers("/api/health/**").permitAll()
@@ -166,7 +166,8 @@ public class WebSecurityConfig {
             "Origin",
             "Access-Control-Request-Method",
             "Access-Control-Request-Headers",
-            "x-access-token"
+            "x-access-token",
+            "X-Device-Id"
         ));
         
         // Expose only necessary headers
