@@ -10,6 +10,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -110,15 +113,35 @@ public class BillingService {
         BigDecimal finalAmount = totalAmount.subtract(discount).add(makingCharges);
         billing.setFinalAmount(finalAmount);
 
-        // Handle paid amount - default to final amount if not specified
-        BigDecimal paidAmount = billing.getPaidAmount() != null ? billing.getPaidAmount() : BigDecimal.ZERO;
-        
-        // If payment method is CASH and no paid amount specified, assume full payment
-        if (billing.getPaymentMethod() == Billing.PaymentMethod.CASH && paidAmount.compareTo(BigDecimal.ZERO) == 0) {
-            paidAmount = finalAmount;
+        // Handle paid amount: support split payment (paymentBreakdown) or single method + amount
+        BigDecimal paidAmount = BigDecimal.ZERO;
+        String breakdown = billing.getPaymentBreakdown();
+        if (breakdown != null && !breakdown.trim().isEmpty()) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                List<Map<String, Object>> payments = mapper.readValue(breakdown, new TypeReference<List<Map<String, Object>>>() {});
+                for (Map<String, Object> p : payments) {
+                    Object amt = p.get("amount");
+                    if (amt != null) {
+                        if (amt instanceof Number) paidAmount = paidAmount.add(BigDecimal.valueOf(((Number) amt).doubleValue()));
+                        else paidAmount = paidAmount.add(new BigDecimal(amt.toString()));
+                    }
+                }
+                paidAmount = paidAmount.setScale(2, java.math.RoundingMode.HALF_UP);
+                billing.setPaidAmount(paidAmount);
+                billing.setPaymentMethod(Billing.PaymentMethod.MIXED);
+            } catch (Exception e) {
+                // fallback to single payment
+                paidAmount = billing.getPaidAmount() != null ? billing.getPaidAmount() : BigDecimal.ZERO;
+                billing.setPaidAmount(paidAmount);
+            }
+        } else {
+            paidAmount = billing.getPaidAmount() != null ? billing.getPaidAmount() : BigDecimal.ZERO;
+            if (billing.getPaymentMethod() == Billing.PaymentMethod.CASH && paidAmount.compareTo(BigDecimal.ZERO) == 0) {
+                paidAmount = finalAmount;
+            }
+            billing.setPaidAmount(paidAmount);
         }
-        
-        billing.setPaidAmount(paidAmount);
         
         // Set payment status based on paid amount
         if (paidAmount.compareTo(finalAmount) >= 0) {

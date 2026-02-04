@@ -52,6 +52,10 @@ public class Billing {
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
+    /** JSON array of { "method": "CASH"|"UPI"|..., "amount": number } for split payment (e.g. cash + UPI). */
+    @Column(name = "payment_breakdown", length = 2000)
+    private String paymentBreakdown;
+
     @Column(name = "payment_status")
     @Enumerated(EnumType.STRING)
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
@@ -73,7 +77,7 @@ public class Billing {
     private LocalDateTime createdAt;
 
     public enum PaymentMethod {
-        CASH, CARD, UPI, BANK_TRANSFER, CREDIT
+        CASH, CARD, UPI, BANK_TRANSFER, CREDIT, MIXED
     }
 
     public enum PaymentStatus {
@@ -162,6 +166,14 @@ public class Billing {
 
     public void setPaymentMethod(PaymentMethod paymentMethod) {
         this.paymentMethod = paymentMethod;
+    }
+
+    public String getPaymentBreakdown() {
+        return paymentBreakdown;
+    }
+
+    public void setPaymentBreakdown(String paymentBreakdown) {
+        this.paymentBreakdown = paymentBreakdown;
     }
 
     public PaymentStatus getPaymentStatus() {

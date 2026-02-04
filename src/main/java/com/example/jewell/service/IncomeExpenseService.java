@@ -56,46 +56,77 @@ public class IncomeExpenseService {
     }
 
     /**
-     * Automatically record income from a billing (when bill is paid or partially paid)
+     * Automatically record income from a billing (when bill is paid or partially paid).
+     * If paymentBreakdown is present, creates one transaction per method+amount; otherwise one transaction.
      */
     public void recordIncomeFromBilling(Billing billing) {
-        if (billing.getPaymentStatus() == Billing.PaymentStatus.PAID || 
-            billing.getPaymentStatus() == Billing.PaymentStatus.PARTIAL) {
-            TransactionHistory transaction = new TransactionHistory();
-            transaction.setTransactionDate(billing.getCreatedAt().toLocalDate());
-            transaction.setTransactionType(TransactionHistory.TransactionType.INCOME);
-            transaction.setCategory(TransactionHistory.Category.SALES);
-            
-            // Use paid amount if available, otherwise use final amount
-            BigDecimal amountToRecord = billing.getPaidAmount() != null && 
-                                       billing.getPaidAmount().compareTo(BigDecimal.ZERO) > 0
-                                       ? billing.getPaidAmount() 
-                                       : billing.getFinalAmount();
-            transaction.setAmount(amountToRecord);
-            
-            String description = "Bill: " + billing.getBillNumber();
-            if (billing.getPaymentStatus() == Billing.PaymentStatus.PARTIAL && 
-                billing.getPaidAmount() != null) {
-                description += " (Partial payment: ₹" + billing.getPaidAmount() + ")";
-            }
-            transaction.setDescription(description);
-            
-            // Map Billing.PaymentMethod to TransactionHistory.PaymentMethod
-            TransactionHistory.PaymentMethod paymentMethod = TransactionHistory.PaymentMethod.CASH;
-            if (billing.getPaymentMethod() != null) {
-                try {
-                    String methodName = billing.getPaymentMethod().name();
-                    paymentMethod = TransactionHistory.PaymentMethod.valueOf(methodName);
-                } catch (IllegalArgumentException e) {
-                    // If enum value doesn't exist, default to CASH
-                    paymentMethod = TransactionHistory.PaymentMethod.CASH;
-                }
-            }
-            transaction.setPaymentMethod(paymentMethod);
-            transaction.setReferenceNumber(billing.getBillNumber());
-            transaction.setBilling(billing);
-            transactionHistoryRepository.save(transaction);
+        if (billing.getPaymentStatus() != Billing.PaymentStatus.PAID && 
+            billing.getPaymentStatus() != Billing.PaymentStatus.PARTIAL) {
+            return;
         }
+        BigDecimal paidAmount = billing.getPaidAmount() != null && billing.getPaidAmount().compareTo(BigDecimal.ZERO) > 0
+            ? billing.getPaidAmount() : billing.getFinalAmount();
+        if (paidAmount == null || paidAmount.compareTo(BigDecimal.ZERO) <= 0) return;
+
+        String breakdown = billing.getPaymentBreakdown();
+        if (breakdown != null && !breakdown.trim().isEmpty()) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                java.util.List<java.util.Map<String, Object>> payments = mapper.readValue(breakdown,
+                    new com.fasterxml.jackson.core.type.TypeReference<java.util.List<java.util.Map<String, Object>>>() {});
+                for (java.util.Map<String, Object> p : payments) {
+                    Object amt = p.get("amount");
+                    if (amt == null) continue;
+                    BigDecimal amount = amt instanceof java.math.BigDecimal ? (java.math.BigDecimal) amt
+                        : java.math.BigDecimal.valueOf(((Number) amt).doubleValue()).setScale(2, java.math.RoundingMode.HALF_UP);
+                    if (amount.compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
+                    Object methodObj = p.get("method");
+                    String methodName = methodObj != null ? methodObj.toString() : "CASH";
+                    TransactionHistory.PaymentMethod txMethod = TransactionHistory.PaymentMethod.CASH;
+                    try {
+                        txMethod = TransactionHistory.PaymentMethod.valueOf(methodName);
+                    } catch (IllegalArgumentException ignored) { }
+                    TransactionHistory transaction = new TransactionHistory();
+                    transaction.setTransactionDate(billing.getCreatedAt().toLocalDate());
+                    transaction.setTransactionType(TransactionHistory.TransactionType.INCOME);
+                    transaction.setCategory(TransactionHistory.Category.SALES);
+                    transaction.setAmount(amount);
+                    transaction.setDescription("Bill: " + billing.getBillNumber() + " (" + methodName + ")");
+                    transaction.setPaymentMethod(txMethod);
+                    transaction.setReferenceNumber(billing.getBillNumber());
+                    transaction.setBilling(billing);
+                    transactionHistoryRepository.save(transaction);
+                }
+            } catch (Exception e) {
+                // fallback: single transaction
+                createSingleBillingTransaction(billing, paidAmount);
+            }
+        } else {
+            createSingleBillingTransaction(billing, paidAmount);
+        }
+    }
+
+    private void createSingleBillingTransaction(Billing billing, BigDecimal amountToRecord) {
+        TransactionHistory transaction = new TransactionHistory();
+        transaction.setTransactionDate(billing.getCreatedAt().toLocalDate());
+        transaction.setTransactionType(TransactionHistory.TransactionType.INCOME);
+        transaction.setCategory(TransactionHistory.Category.SALES);
+        transaction.setAmount(amountToRecord);
+        String description = "Bill: " + billing.getBillNumber();
+        if (billing.getPaymentStatus() == Billing.PaymentStatus.PARTIAL && billing.getPaidAmount() != null) {
+            description += " (Partial payment: ₹" + billing.getPaidAmount() + ")";
+        }
+        transaction.setDescription(description);
+        TransactionHistory.PaymentMethod paymentMethod = TransactionHistory.PaymentMethod.CASH;
+        if (billing.getPaymentMethod() != null && billing.getPaymentMethod() != Billing.PaymentMethod.MIXED) {
+            try {
+                paymentMethod = TransactionHistory.PaymentMethod.valueOf(billing.getPaymentMethod().name());
+            } catch (IllegalArgumentException ignored) { }
+        }
+        transaction.setPaymentMethod(paymentMethod);
+        transaction.setReferenceNumber(billing.getBillNumber());
+        transaction.setBilling(billing);
+        transactionHistoryRepository.save(transaction);
     }
 
     /**
