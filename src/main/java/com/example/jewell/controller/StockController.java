@@ -156,6 +156,17 @@ public class StockController {
         }
         return ResponseEntity.ok(PageResponse.of(stockPage));
     }
+
+    /**
+     * Low-stock alert: list items with quantity at or below threshold.
+     * GET /api/stock/low-stock?threshold=5
+     */
+    @GetMapping("/low-stock")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Stock>> getLowStock(
+            @RequestParam(defaultValue = "5") int threshold) {
+        return ResponseEntity.ok(stockService.getLowStockItems(threshold));
+    }
     
     @GetMapping("/search")
     public ResponseEntity<List<Stock>> searchStock(@RequestParam String query) {

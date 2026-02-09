@@ -1,6 +1,7 @@
 package com.example.jewell.controller;
 
 import com.example.jewell.model.Customer;
+import com.example.jewell.service.CustomerLedgerService;
 import com.example.jewell.service.CustomerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,9 @@ public class CustomerController {
     @Autowired
     private CustomerService customerService;
 
+    @Autowired
+    private CustomerLedgerService customerLedgerService;
+
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllCustomers(@RequestParam(defaultValue = "0") int page,
@@ -33,6 +37,12 @@ public class CustomerController {
         return customerService.getCustomerById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{id}/ledger")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> getCustomerLedger(@PathVariable Long id) {
+        return ResponseEntity.ok(customerLedgerService.getCustomerLedger(id));
     }
 
     @GetMapping("/search")

@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +35,9 @@ public class Customer {
     @Column(name = "whatsapp_number")
     @Size(max = 15)
     private String whatsappNumber;
+
+    @Column(name = "loyalty_points", precision = 12, scale = 2)
+    private BigDecimal loyaltyPoints = BigDecimal.ZERO;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -139,5 +143,13 @@ public class Customer {
 
     public void setCredits(List<Credit> credits) {
         this.credits = credits;
+    }
+
+    public BigDecimal getLoyaltyPoints() {
+        return loyaltyPoints;
+    }
+
+    public void setLoyaltyPoints(BigDecimal loyaltyPoints) {
+        this.loyaltyPoints = loyaltyPoints;
     }
 }

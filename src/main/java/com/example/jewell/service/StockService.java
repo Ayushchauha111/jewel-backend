@@ -132,6 +132,11 @@ public class StockService {
         return stockRepository.findByStatus(status);
     }
 
+    /** Items with quantity at or below threshold (low-stock alerts). */
+    public List<Stock> getLowStockItems(int threshold) {
+        return stockRepository.findLowStockByQuantity(threshold);
+    }
+
     /**
      * Returns sales history for a stock: which bills it was sold in (bill number, date, quantity sold).
      */

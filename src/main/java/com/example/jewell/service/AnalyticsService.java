@@ -7,11 +7,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -117,6 +116,93 @@ public class AnalyticsService {
         analytics.put("netIncome", totalIncome.subtract(totalExpenses));
         
         return analytics;
+    }
+
+    /**
+     * Sales by category for date range (from billing items via stock category).
+     */
+    public List<Map<String, Object>> getSalesByCategory(LocalDate startDate, LocalDate endDate) {
+        LocalDateTime start = startDate.atStartOfDay();
+        LocalDateTime end = endDate.atTime(23, 59, 59);
+        List<Billing> bills = billingRepository.findByCreatedAtBetween(start, end);
+        Map<String, BigDecimal> categoryToTotal = new HashMap<>();
+        for (Billing b : bills) {
+            if (b.getPaymentStatus() != Billing.PaymentStatus.PAID && b.getPaymentStatus() != Billing.PaymentStatus.PARTIAL) continue;
+            if (b.getItems() == null) continue;
+            for (BillingItem bi : b.getItems()) {
+                String category = "Other";
+                if (bi.getStock() != null && bi.getStock().getCategory() != null && !bi.getStock().getCategory().isEmpty()) {
+                    category = bi.getStock().getCategory();
+                }
+                BigDecimal amt = bi.getTotalPrice() != null ? bi.getTotalPrice() : BigDecimal.ZERO;
+                categoryToTotal.merge(category, amt, BigDecimal::add);
+            }
+        }
+        return categoryToTotal.entrySet().stream()
+                .map(e -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("category", e.getKey());
+                    m.put("totalSales", e.getValue());
+                    return m;
+                })
+                .sorted(Comparator.comparing(m -> (String) m.get("category")))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Sales by payment method for date range.
+     */
+    public List<Map<String, Object>> getSalesByPaymentMethod(LocalDate startDate, LocalDate endDate) {
+        LocalDateTime start = startDate.atStartOfDay();
+        LocalDateTime end = endDate.atTime(23, 59, 59);
+        List<Billing> bills = billingRepository.findByCreatedAtBetween(start, end);
+        Map<Billing.PaymentMethod, BigDecimal> methodToTotal = new HashMap<>();
+        for (Billing b : bills) {
+            if (b.getPaymentStatus() != Billing.PaymentStatus.PAID && b.getPaymentStatus() != Billing.PaymentStatus.PARTIAL) continue;
+            Billing.PaymentMethod method = b.getPaymentMethod() != null ? b.getPaymentMethod() : Billing.PaymentMethod.CASH;
+            BigDecimal amt = b.getPaidAmount() != null ? b.getPaidAmount() : b.getFinalAmount();
+            if (amt == null) amt = BigDecimal.ZERO;
+            methodToTotal.merge(method, amt, BigDecimal::add);
+        }
+        return methodToTotal.entrySet().stream()
+                .map(e -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("paymentMethod", e.getKey().name());
+                    m.put("totalAmount", e.getValue());
+                    return m;
+                })
+                .sorted(Comparator.comparing(m -> (String) m.get("paymentMethod")))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * GSTR-style tax summary for date range: taxable value, CGST, SGST, total GST.
+     */
+    public Map<String, Object> getTaxSummary(LocalDate startDate, LocalDate endDate) {
+        LocalDateTime start = startDate.atStartOfDay();
+        LocalDateTime end = endDate.atTime(23, 59, 59);
+        List<Billing> bills = billingRepository.findByCreatedAtBetween(start, end);
+        BigDecimal taxableValue = bills.stream()
+                .filter(b -> b.getPaymentStatus() == Billing.PaymentStatus.PAID || b.getPaymentStatus() == Billing.PaymentStatus.PARTIAL)
+                .map(Billing::getFinalAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal cgstRate = new BigDecimal("0.015");
+        BigDecimal sgstRate = new BigDecimal("0.015");
+        BigDecimal cgst = taxableValue.multiply(cgstRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal sgst = taxableValue.multiply(sgstRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalGst = cgst.add(sgst);
+        Map<String, Object> out = new HashMap<>();
+        out.put("startDate", startDate.toString());
+        out.put("endDate", endDate.toString());
+        out.put("taxableValue", taxableValue);
+        out.put("cgstRate", "1.5%");
+        out.put("sgstRate", "1.5%");
+        out.put("cgst", cgst);
+        out.put("sgst", sgst);
+        out.put("totalGst", totalGst);
+        out.put("totalWithGst", taxableValue.add(totalGst));
+        return out;
     }
 
     /**

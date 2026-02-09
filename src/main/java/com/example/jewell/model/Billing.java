@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 @Entity
 @Table(name = "billing")
 public class Billing {
@@ -75,6 +77,21 @@ public class Billing {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    /** Not persisted. When set, discount is applied from PromoCode at create. */
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String promoCode;
+
+    /** Not persisted. Points to redeem at billing (1 point = 1 rupee). */
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer redeemPoints;
+
+    /** Not persisted. Gift voucher code to redeem against this bill. */
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String voucherCode;
 
     public enum PaymentMethod {
         CASH, CARD, UPI, BANK_TRANSFER, CREDIT, MIXED
@@ -222,5 +239,29 @@ public class Billing {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getPromoCode() {
+        return promoCode;
+    }
+
+    public void setPromoCode(String promoCode) {
+        this.promoCode = promoCode;
+    }
+
+    public Integer getRedeemPoints() {
+        return redeemPoints;
+    }
+
+    public void setRedeemPoints(Integer redeemPoints) {
+        this.redeemPoints = redeemPoints;
+    }
+
+    public String getVoucherCode() {
+        return voucherCode;
+    }
+
+    public void setVoucherCode(String voucherCode) {
+        this.voucherCode = voucherCode;
     }
 }

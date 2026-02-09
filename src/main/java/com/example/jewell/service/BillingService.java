@@ -14,6 +14,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -43,6 +44,21 @@ public class BillingService {
 
     @Autowired
     private IncomeExpenseService incomeExpenseService;
+
+    @Autowired
+    private PromoCodeService promoCodeService;
+
+    @Autowired
+    private CustomerRepository customerRepository;
+
+    @Autowired
+    private LoyaltyTransactionRepository loyaltyTransactionRepository;
+
+    @Autowired
+    private GiftVoucherService giftVoucherService;
+
+    /** Points earned per 100 rupees of bill (configurable). */
+    private static final int LOYALTY_POINTS_PER_100 = 1;
 
     public List<Billing> getAllBills() {
         return billingRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -109,9 +125,41 @@ public class BillingService {
         billing.setTotalAmount(totalAmount);
 
         BigDecimal discount = billing.getDiscountAmount() != null ? billing.getDiscountAmount() : BigDecimal.ZERO;
+        if (billing.getPromoCode() != null && !billing.getPromoCode().trim().isEmpty()) {
+            BigDecimal promoDiscount = promoCodeService.validateAndGetDiscount(billing.getPromoCode().trim(), totalAmount).orElse(BigDecimal.ZERO);
+            discount = discount.add(promoDiscount);
+            promoCodeService.applyAndIncrementUsage(billing.getPromoCode().trim(), totalAmount);
+        }
         BigDecimal makingCharges = billing.getMakingCharges() != null ? billing.getMakingCharges() : BigDecimal.ZERO;
         BigDecimal finalAmount = totalAmount.subtract(discount).add(makingCharges);
+
+        // Gift voucher: reduce final amount by voucher value
+        BigDecimal voucherDiscount = BigDecimal.ZERO;
+        if (billing.getVoucherCode() != null && !billing.getVoucherCode().trim().isEmpty()) {
+            voucherDiscount = giftVoucherService.validateAndGetAmount(billing.getVoucherCode().trim()).orElse(BigDecimal.ZERO);
+            if (voucherDiscount.compareTo(finalAmount) > 0) voucherDiscount = finalAmount;
+            if (voucherDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                finalAmount = finalAmount.subtract(voucherDiscount);
+                discount = discount.add(voucherDiscount);
+            }
+        }
+
+        // Loyalty redeem: reduce final amount by points (1 point = 1 rupee)
+        int toRedeem = 0;
+        if (billing.getRedeemPoints() != null && billing.getRedeemPoints() > 0 && billing.getCustomer() != null && billing.getCustomer().getId() != null) {
+            Customer cust = customerRepository.findById(billing.getCustomer().getId()).orElse(null);
+            if (cust != null && cust.getLoyaltyPoints() != null && cust.getLoyaltyPoints().compareTo(BigDecimal.ZERO) > 0) {
+                int currentPoints = cust.getLoyaltyPoints().intValue();
+                toRedeem = Math.min(billing.getRedeemPoints(), currentPoints);
+                if (toRedeem > 0) {
+                    BigDecimal redeemValue = BigDecimal.valueOf(toRedeem);
+                    finalAmount = finalAmount.subtract(redeemValue);
+                    discount = discount.add(redeemValue);
+                }
+            }
+        }
         billing.setFinalAmount(finalAmount);
+        billing.setDiscountAmount(discount);
 
         // Handle paid amount: support split payment (paymentBreakdown) or single method + amount
         BigDecimal paidAmount = BigDecimal.ZERO;
@@ -229,6 +277,46 @@ public class BillingService {
         } else if (paidAmount.compareTo(BigDecimal.ZERO) > 0 && savedBilling.getPaymentStatus() == Billing.PaymentStatus.PARTIAL) {
             // For partial payments, record income for the paid amount
             incomeExpenseService.recordIncomeFromBilling(savedBilling);
+        }
+
+        // Loyalty: earn points (1 per 100 rupees) and apply redeem
+        if (savedBilling.getCustomer() != null && savedBilling.getCustomer().getId() != null) {
+            Customer cust = customerRepository.findById(savedBilling.getCustomer().getId()).orElse(null);
+            if (cust != null) {
+                BigDecimal finalAmt = savedBilling.getFinalAmount();
+                if (finalAmt != null && finalAmt.compareTo(BigDecimal.ZERO) > 0) {
+                    int pointsEarned = finalAmt.divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN).intValue() * LOYALTY_POINTS_PER_100;
+                    if (pointsEarned > 0) {
+                        BigDecimal current = cust.getLoyaltyPoints() != null ? cust.getLoyaltyPoints() : BigDecimal.ZERO;
+                        cust.setLoyaltyPoints(current.add(BigDecimal.valueOf(pointsEarned)));
+                        customerRepository.save(cust);
+                        LoyaltyTransaction earn = new LoyaltyTransaction();
+                        earn.setCustomer(cust);
+                        earn.setType(LoyaltyTransaction.TransactionType.EARN);
+                        earn.setPoints(BigDecimal.valueOf(pointsEarned));
+                        earn.setBilling(savedBilling);
+                        earn.setDescription("Earned on Bill " + savedBilling.getBillNumber());
+                        loyaltyTransactionRepository.save(earn);
+                    }
+                }
+                if (toRedeem > 0) {
+                    BigDecimal current = cust.getLoyaltyPoints() != null ? cust.getLoyaltyPoints() : BigDecimal.ZERO;
+                    cust.setLoyaltyPoints(current.subtract(BigDecimal.valueOf(toRedeem)));
+                    customerRepository.save(cust);
+                    LoyaltyTransaction redeem = new LoyaltyTransaction();
+                    redeem.setCustomer(cust);
+                    redeem.setType(LoyaltyTransaction.TransactionType.REDEEM);
+                    redeem.setPoints(BigDecimal.valueOf(toRedeem));
+                    redeem.setBilling(savedBilling);
+                    redeem.setDescription("Redeemed on Bill " + savedBilling.getBillNumber());
+                    loyaltyTransactionRepository.save(redeem);
+                }
+            }
+        }
+
+        // Mark gift voucher as redeemed if used
+        if (billing.getVoucherCode() != null && !billing.getVoucherCode().trim().isEmpty() && voucherDiscount.compareTo(BigDecimal.ZERO) > 0) {
+            giftVoucherService.redeemVoucher(billing.getVoucherCode().trim(), savedBilling);
         }
 
         return savedBilling;

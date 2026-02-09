@@ -53,4 +53,7 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
     
     @Query("SELECT s FROM Stock s WHERE s.status = 'SOLD' AND DATE(s.updatedAt) = :date")
     List<Stock> getSoldStockByDate(@Param("date") LocalDate date);
+
+    @Query("SELECT s FROM Stock s WHERE s.status = 'AVAILABLE' AND (s.quantity IS NULL OR s.quantity <= :threshold)")
+    List<Stock> findLowStockByQuantity(@Param("threshold") int threshold);
 }
