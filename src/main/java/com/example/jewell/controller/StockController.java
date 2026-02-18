@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.ArrayList;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -281,6 +282,28 @@ public class StockController {
         } catch (IOException e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", "Failed to upload image: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
+
+    /**
+     * Upload 3 to 5 product photos. Accepts multiple "files". Returns list of URLs in order.
+     */
+    @PostMapping("/upload-images")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> uploadImages(@RequestParam("files") MultipartFile[] files) {
+        try {
+            List<String> urls = stockService.uploadStockImages(files);
+            Map<String, Object> response = new HashMap<>();
+            response.put("imageUrls", urls);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        } catch (IOException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Failed to upload images: " + e.getMessage());
             return ResponseEntity.status(500).body(error);
         }
     }

@@ -9,6 +9,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "stock")
@@ -71,6 +72,11 @@ public class Stock {
 
     @Column(name = "image_url")
     private String imageUrl;
+
+    /** 3 to 5 product photo URLs (JSON array in DB). */
+    @Convert(converter = StockImageUrlsConverter.class)
+    @Column(name = "image_urls", columnDefinition = "TEXT")
+    private List<String> imageUrls;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
@@ -234,6 +240,14 @@ public class Stock {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public List<String> getImageUrls() {
+        return imageUrls;
+    }
+
+    public void setImageUrls(List<String> imageUrls) {
+        this.imageUrls = imageUrls;
     }
 
     public StockStatus getStatus() {

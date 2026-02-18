@@ -310,6 +310,15 @@ public class StockService {
                 stock.setArticleCode(uniqueCode);
             }
             
+            // Validate product photos: 3 to 5 if provided
+            if (stock.getImageUrls() != null && !stock.getImageUrls().isEmpty()) {
+                int n = stock.getImageUrls().size();
+                if (n < MIN_PRODUCT_PHOTOS || n > MAX_PRODUCT_PHOTOS) {
+                    throw new IllegalArgumentException("Product must have between " + MIN_PRODUCT_PHOTOS + " and " + MAX_PRODUCT_PHOTOS + " photos; got " + n);
+                }
+                stock.setImageUrl(stock.getImageUrls().get(0));
+            }
+
             // Generate QR code if not provided
             if (stock.getQrCode() == null || stock.getQrCode().isEmpty()) {
                 String qrData = generateQRData(stock);
@@ -400,7 +409,19 @@ public class StockService {
             if (stockDetails.getStatus() != null) {
                 stock.setStatus(stockDetails.getStatus());
             }
-            if (stockDetails.getImageUrl() != null) {
+            if (stockDetails.getImageUrls() != null) {
+                if (!stockDetails.getImageUrls().isEmpty()) {
+                    int n = stockDetails.getImageUrls().size();
+                    if (n < MIN_PRODUCT_PHOTOS || n > MAX_PRODUCT_PHOTOS) {
+                        throw new IllegalArgumentException("Product must have between " + MIN_PRODUCT_PHOTOS + " and " + MAX_PRODUCT_PHOTOS + " photos; got " + n);
+                    }
+                    stock.setImageUrls(stockDetails.getImageUrls());
+                    stock.setImageUrl(stockDetails.getImageUrls().get(0));
+                } else {
+                    stock.setImageUrls(null);
+                    stock.setImageUrl(null);
+                }
+            } else if (stockDetails.getImageUrl() != null) {
                 stock.setImageUrl(stockDetails.getImageUrl());
             }
             
@@ -444,6 +465,9 @@ public class StockService {
         stockRepository.deleteById(id);
     }
 
+    public static final int MIN_PRODUCT_PHOTOS = 3;
+    public static final int MAX_PRODUCT_PHOTOS = 5;
+
     public String uploadStockImage(MultipartFile file) throws IOException {
         // Generate unique filename
         String originalFilename = file.getOriginalFilename();
@@ -462,6 +486,24 @@ public class StockService {
         // Return the public URL
         String publicUrl = stockImageStorage.getPublicUrl(objectName);
         return publicUrl != null ? publicUrl : objectName;
+    }
+
+    /**
+     * Upload 3 to 5 product photos. Returns list of public URLs in order.
+     */
+    public List<String> uploadStockImages(MultipartFile[] files) throws IOException {
+        if (files == null || files.length < MIN_PRODUCT_PHOTOS || files.length > MAX_PRODUCT_PHOTOS) {
+            throw new IllegalArgumentException("Product must have between " + MIN_PRODUCT_PHOTOS + " and " + MAX_PRODUCT_PHOTOS + " photos; got " + (files == null ? 0 : files.length));
+        }
+        List<String> urls = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) continue;
+            urls.add(uploadStockImage(file));
+        }
+        if (urls.size() < MIN_PRODUCT_PHOTOS || urls.size() > MAX_PRODUCT_PHOTOS) {
+            throw new IllegalArgumentException("Product must have between " + MIN_PRODUCT_PHOTOS + " and " + MAX_PRODUCT_PHOTOS + " photos; uploaded " + urls.size());
+        }
+        return urls;
     }
 
     public Stock regenerateQRCode(Long id) {
