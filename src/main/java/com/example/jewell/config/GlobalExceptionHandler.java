@@ -81,7 +81,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         Map<String, Object> response = new HashMap<>();
         response.put("error", "Invalid request");
-        response.put("message", "Please check your input and try again");
+        response.put("message", ex.getMessage() != null && !ex.getMessage().isEmpty() ? ex.getMessage() : "Please check your input and try again");
         logger.warn("Illegal argument: {}", ex.getMessage());
         return ResponseEntity.badRequest().body(response);
     }

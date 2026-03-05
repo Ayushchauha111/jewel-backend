@@ -2,6 +2,7 @@ package com.example.jewell.controller;
 
 import com.example.jewell.dto.PageResponse;
 import com.example.jewell.model.Billing;
+import com.example.jewell.model.BillingEditHistory;
 import com.example.jewell.service.BillingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -56,6 +57,18 @@ public class BillingController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Billing> createBill(@RequestBody Billing billing) {
         return ResponseEntity.ok(billingService.createBill(billing));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Billing> updateBill(@PathVariable Long id, @RequestBody Billing updates) {
+        return ResponseEntity.ok(billingService.updateBill(id, updates));
+    }
+
+    @GetMapping("/{id}/edit-history")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<BillingEditHistory>> getBillEditHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(billingService.getBillEditHistory(id));
     }
 
     @PostMapping("/{id}/send-email")

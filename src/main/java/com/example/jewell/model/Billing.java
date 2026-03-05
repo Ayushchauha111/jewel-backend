@@ -93,6 +93,16 @@ public class Billing {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String voucherCode;
 
+    /** Not persisted. When set on update, these billing item IDs will be removed (stock restored). */
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<Long> itemIdsToRemove;
+
+    /** Not persisted. When set on update, these items will be added to the bill. */
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<BillingItem> itemsToAdd;
+
     public enum PaymentMethod {
         CASH, CARD, UPI, BANK_TRANSFER, CREDIT, MIXED
     }
@@ -263,5 +273,21 @@ public class Billing {
 
     public void setVoucherCode(String voucherCode) {
         this.voucherCode = voucherCode;
+    }
+
+    public List<Long> getItemIdsToRemove() {
+        return itemIdsToRemove;
+    }
+
+    public void setItemIdsToRemove(List<Long> itemIdsToRemove) {
+        this.itemIdsToRemove = itemIdsToRemove;
+    }
+
+    public List<BillingItem> getItemsToAdd() {
+        return itemsToAdd;
+    }
+
+    public void setItemsToAdd(List<BillingItem> itemsToAdd) {
+        this.itemsToAdd = itemsToAdd;
     }
 }

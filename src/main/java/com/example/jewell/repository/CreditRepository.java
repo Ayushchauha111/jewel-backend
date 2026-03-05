@@ -15,6 +15,7 @@ import java.util.List;
 @Repository
 public interface CreditRepository extends JpaRepository<Credit, Long> {
     List<Credit> findByCustomerId(Long customerId);
+    List<Credit> findByBilling_Id(Long billingId);
     List<Credit> findByStatus(Credit.CreditStatus status);
     long countByStatus(Credit.CreditStatus status);
     
