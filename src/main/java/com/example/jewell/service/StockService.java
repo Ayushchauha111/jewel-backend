@@ -531,32 +531,14 @@ public class StockService {
     }
 
     private String generateQRData(Stock stock) {
-        // Create JSON structure for better QR code scanner compatibility
-        StringBuilder json = new StringBuilder();
-        json.append("{");
-        json.append("\"id\":").append(stock.getId() != null ? stock.getId() : 0).append(",");
-        json.append("\"articleName\":\"").append(escapeJson(stock.getArticleName() != null ? stock.getArticleName() : "")).append("\",");
+        // Encode only the article code to keep the QR simple and scannable at small print sizes.
+        // The billing scanner already resolves plain article codes to stock items.
         if (stock.getArticleCode() != null && !stock.getArticleCode().isEmpty()) {
-            json.append("\"articleCode\":\"").append(escapeJson(stock.getArticleCode())).append("\",");
+            return stock.getArticleCode();
         }
-        json.append("\"weightGrams\":").append(stock.getWeightGrams() != null ? stock.getWeightGrams() : "0").append(",");
-        json.append("\"carat\":").append(stock.getCarat() != null ? stock.getCarat() : "0").append(",");
-        if (stock.getPurityPercentage() != null) {
-            json.append("\"purityPercentage\":").append(stock.getPurityPercentage()).append(",");
-        }
-        json.append("\"sellingPrice\":").append(stock.getSellingPrice() != null ? stock.getSellingPrice() : "0");
-        json.append("}");
-        return json.toString();
+        return String.valueOf(stock.getId() != null ? stock.getId() : 0);
     }
     
-    private String escapeJson(String str) {
-        if (str == null) return "";
-        return str.replace("\\", "\\\\")
-                  .replace("\"", "\\\"")
-                  .replace("\n", "\\n")
-                  .replace("\r", "\\r")
-                  .replace("\t", "\\t");
-    }
     
     private String generateArticleCode(String articleName) {
         if (articleName == null || articleName.trim().isEmpty()) {

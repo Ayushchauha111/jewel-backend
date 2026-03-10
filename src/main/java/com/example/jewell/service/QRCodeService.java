@@ -20,7 +20,7 @@ public class QRCodeService {
     
     private static final int QR_CODE_WIDTH = 400;
     private static final int QR_CODE_HEIGHT = 400;
-    private static final int QR_CODE_MARGIN = 4;
+    private static final int QR_CODE_MARGIN = 1;
 
     public String generateQRCode(String data) {
         try {
