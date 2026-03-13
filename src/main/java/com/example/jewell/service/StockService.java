@@ -396,6 +396,7 @@ public class StockService {
             }
             
             stock.setWeightGrams(stockDetails.getWeightGrams());
+            stock.setGrossWeightGrams(stockDetails.getGrossWeightGrams());
             stock.setCarat(stockDetails.getCarat());
             stock.setDiamondCarat(stockDetails.getDiamondCarat());
             stock.setPurityPercentage(stockDetails.getPurityPercentage());

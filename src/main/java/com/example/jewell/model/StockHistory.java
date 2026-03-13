@@ -25,6 +25,9 @@ public class StockHistory {
     @Column(name = "weight_grams", precision = 10, scale = 3)
     private BigDecimal weightGrams;
 
+    @Column(name = "gross_weight_grams", precision = 10, scale = 3)
+    private BigDecimal grossWeightGrams;
+
     @Column(name = "carat", precision = 5, scale = 2)
     private BigDecimal carat;
 
@@ -70,6 +73,7 @@ public class StockHistory {
         this.articleName = stock.getArticleName();
         this.articleCode = stock.getArticleCode();
         this.weightGrams = stock.getWeightGrams();
+        this.grossWeightGrams = stock.getGrossWeightGrams();
         this.carat = stock.getCarat();
         this.diamondCarat = stock.getDiamondCarat();
         this.purityPercentage = stock.getPurityPercentage();
@@ -122,6 +126,14 @@ public class StockHistory {
 
     public void setWeightGrams(BigDecimal weightGrams) {
         this.weightGrams = weightGrams;
+    }
+
+    public BigDecimal getGrossWeightGrams() {
+        return grossWeightGrams;
+    }
+
+    public void setGrossWeightGrams(BigDecimal grossWeightGrams) {
+        this.grossWeightGrams = grossWeightGrams;
     }
 
     public BigDecimal getCarat() {

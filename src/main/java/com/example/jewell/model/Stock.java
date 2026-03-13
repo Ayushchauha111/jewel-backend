@@ -36,6 +36,9 @@ public class Stock {
     @Column(name = "weight_grams", precision = 10, scale = 3)
     private BigDecimal weightGrams;
 
+    @Column(name = "gross_weight_grams", precision = 10, scale = 3)
+    private BigDecimal grossWeightGrams;
+
     @NotNull
     @Column(name = "carat", precision = 5, scale = 2)
     private BigDecimal carat;
@@ -144,6 +147,14 @@ public class Stock {
 
     public void setWeightGrams(BigDecimal weightGrams) {
         this.weightGrams = weightGrams;
+    }
+
+    public BigDecimal getGrossWeightGrams() {
+        return grossWeightGrams;
+    }
+
+    public void setGrossWeightGrams(BigDecimal grossWeightGrams) {
+        this.grossWeightGrams = grossWeightGrams;
     }
 
     public BigDecimal getCarat() {
